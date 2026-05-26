@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#FFF8F0"/>
+  <defs>
+    <pattern id="noodle" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+      <g transform="translate(24, 18) rotate(-15)">
+        <path d="M 16 16 Q 38 11 45 30 Q 52 49 35 56 Q 18 63 11 50 Q 5 38 18 35 Q 29 32 32 42"
+              fill="none" stroke="#E63946" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.15"/>
+      </g>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#noodle)"/>
+  
+  <g transform="translate(540, 80)">
+    <g transform="scale(1.8)">
+      <path d="M 30 22 Q 58 16 67 38 Q 75 58 57 69 Q 39 78 28 64 Q 21 51 34 45 Q 47 41 50 54 Q 50 63 41 63"
+            fill="none" stroke="#E63946" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+      <g opacity="0.6">
+        <path d="M 36 13 Q 39 6 36 0 Q 33 -3 36 -9" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 54 12 Q 57 4 54 -2 Q 51 -6 54 -10" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+  
+  <g transform="translate(280, 290) scale(1.7)">
+    <path d="M 0 5 Q 0 0 5 0 L 78 0 Q 118 0 118 50 Q 118 95 78 95 L 32 95 L 32 130 Q 32 135 27 135 L 5 135 Q 0 135 0 130 Z M 32 28 L 72 28 Q 90 28 90 47 Q 90 67 72 67 L 32 67 Z"
+          fill="#1a1a1a" fill-rule="evenodd"/>
+    <path d="M 162 0 L 200 0 L 240 135 L 215 135 Q 210 135 209 131 L 205 115 L 162 115 L 158 131 Q 157 135 152 135 L 130 135 Z M 170 88 L 197 88 L 186 38 Z"
+          fill="#1a1a1a" fill-rule="evenodd"/>
+    <path d="M 305 0 Q 268 -2 262 28 Q 258 55 295 62 Q 322 68 322 82 Q 322 102 295 102 Q 268 102 260 88 Q 258 84 254 86 L 251 116 Q 251 120 254 122 Q 273 135 298 135 Q 350 135 354 92 Q 358 55 318 50 Q 290 46 290 35 Q 290 25 305 25 Q 320 25 326 35 Q 329 39 333 37 L 336 12 Q 336 8 333 6 Q 322 0 305 0 Z"
+          fill="#1a1a1a"/>
+    <path d="M 378 0 L 488 0 Q 493 0 493 5 L 493 23 Q 493 28 488 28 L 450 28 L 450 130 Q 450 135 445 135 L 422 135 Q 417 135 417 130 L 417 28 L 378 28 Q 373 28 373 23 L 373 5 Q 373 0 378 0 Z"
+          fill="#1a1a1a"/>
+    <g transform="translate(505, 0)">
+      <ellipse cx="51" cy="67" rx="51" ry="67" fill="#E63946"/>
+      <ellipse cx="51" cy="67" rx="25" ry="33" fill="#FFF8F0"/>
+      <path d="M 51 42 Q 73 42 73 64 Q 73 86 51 86 Q 35 86 35 72 Q 35 60 46 60 Q 55 60 55 69"
+            fill="none" stroke="#E63946" stroke-width="4" stroke-linecap="round"/>
+    </g>
+  </g>
+  
+  <line x1="540" y1="540" x2="660" y2="540" stroke="#E63946" stroke-width="3"/>
+  <text x="600" y="585" text-anchor="middle" font-family="Georgia, serif" font-size="28" font-style="italic" fill="#1a1a1a">real ingredients, real pasta.</text>
+</svg>

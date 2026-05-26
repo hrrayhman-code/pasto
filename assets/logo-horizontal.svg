@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="600" height="200">
+  <title>Pasto horizontal logo</title>
+  <desc>Horizontal lockup of Pasto logo for headers and signatures</desc>
+
+  <g id="mascot" transform="translate(40, 40)">
+    <path d="M 40 30 Q 76 22 88 50 Q 98 78 76 92 Q 52 105 38 87 Q 28 70 44 62 Q 60 56 64 74 Q 64 84 52 84"
+          fill="none" stroke="#E63946" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+    <g opacity="0.45">
+      <path d="M 50 15 Q 53 7 50 -1 Q 47 -5 50 -11" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 70 13 Q 73 5 70 -3 Q 67 -7 70 -13" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(170, 50)">
+    <path d="M 0 3 Q 0 0 3 0 L 48 0 Q 73 0 73 31 Q 73 58 48 58 L 20 58 L 20 80 Q 20 83 17 83 L 3 83 Q 0 83 0 80 Z M 20 17 L 44 17 Q 55 17 55 29 Q 55 41 44 41 L 20 41 Z"
+          fill="#1a1a1a" fill-rule="evenodd"/>
+    <path d="M 100 0 L 124 0 L 149 83 L 133 83 Q 130 83 130 81 L 127 71 L 100 71 L 98 81 Q 98 83 95 83 L 80 83 Z M 105 54 L 122 54 L 115 23 Z"
+          fill="#1a1a1a" fill-rule="evenodd"/>
+    <path d="M 188 0 Q 165 -1 162 17 Q 159 34 182 38 Q 199 42 199 51 Q 199 63 182 63 Q 165 63 160 54 Q 159 51 156 53 L 154 72 Q 154 74 156 75 Q 168 83 184 83 Q 216 83 219 57 Q 222 34 197 31 Q 179 28 179 22 Q 179 15 188 15 Q 198 15 202 22 Q 204 24 206 23 L 207 7 Q 207 5 206 4 Q 199 0 188 0 Z"
+          fill="#1a1a1a"/>
+    <path d="M 232 0 L 300 0 Q 303 0 303 3 L 303 14 Q 303 17 300 17 L 277 17 L 277 80 Q 277 83 274 83 L 260 83 Q 257 83 257 80 L 257 17 L 232 17 Q 230 17 230 14 L 230 3 Q 230 0 232 0 Z"
+          fill="#1a1a1a"/>
+    <g transform="translate(311, 0)">
+      <ellipse cx="35" cy="42" rx="35" ry="42" fill="#E63946"/>
+      <ellipse cx="35" cy="42" rx="17" ry="22" fill="#FFF8F0"/>
+      <path d="M 35 25 Q 50 25 50 40 Q 50 55 35 55 Q 24 55 24 45 Q 24 38 31 38 Q 37 38 37 43"
+            fill="none" stroke="#E63946" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <text x="300" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="14" font-style="italic" fill="#1a1a1a">real ingredients, real pasta.</text>
+</svg>

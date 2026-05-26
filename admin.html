@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pasto · Admin</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="assets/logo-icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,700;1,9..144,400;1,9..144,500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="admin-body">
+
+  <!-- ============================== LOGIN ============================== -->
+  <section class="admin-login" id="loginView" hidden>
+    <div class="admin-login-card">
+      <div class="admin-brand">
+        <img src="assets/logo-icon.svg" alt="" width="44" height="44">
+        <div>
+          <div class="admin-brand-name">Pasto</div>
+          <div class="admin-brand-sub">Admin dashboard</div>
+        </div>
+      </div>
+      <h1 class="admin-login-title">Sign in</h1>
+      <p class="admin-login-sub">Use the admin email you created in Supabase Auth.</p>
+      <form id="loginForm" class="admin-form">
+        <div class="field">
+          <label for="adminEmail">Email</label>
+          <input type="email" id="adminEmail" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" required autocomplete="current-password">
+        </div>
+        <div class="admin-login-error" id="loginError" hidden></div>
+        <button type="submit" class="btn btn-primary admin-login-btn">Sign in</button>
+      </form>
+      <div class="admin-login-hint">
+        Need an account? Supabase Dashboard → Authentication → Users → Add user.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== DASHBOARD ============================== -->
+  <div class="admin-shell" id="dashView" hidden>
+    <header class="admin-header">
+      <div class="admin-header-left">
+        <a href="index.html" class="admin-brand">
+          <img src="assets/logo-horizontal.svg" alt="Pasto" style="height: 32px; width: auto;">
+          <span style="font-size:13px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;">Admin</span>
+        </a>
+      </div>
+      <div class="admin-header-right">
+        <span id="adminUserLabel" class="admin-user-label"></span>
+        <button class="btn btn-secondary admin-signout" onclick="adminSignOut()">Sign out</button>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <!-- Top-level tabs: Orders / Reviews / Coupons -->
+      <div class="admin-section-tabs" role="tablist">
+        <button class="admin-section-tab active" data-section="orders"  role="tab">Orders</button>
+        <button class="admin-section-tab"        data-section="reviews" role="tab">Reviews</button>
+        <button class="admin-section-tab"        data-section="coupons" role="tab">Coupons</button>
+      </div>
+
+      <!-- ============== ORDERS section ============== -->
+      <div class="admin-section" data-section="orders">
+        <section class="admin-stats">
+          <div class="stat-card"><div class="stat-num" id="oStatTotal">–</div><div class="stat-label">Total</div></div>
+          <div class="stat-card warning"><div class="stat-num" id="oStatActive">–</div><div class="stat-label">Active</div></div>
+          <div class="stat-card accent"><div class="stat-num" id="oStatToday">–</div><div class="stat-label">Today</div></div>
+          <div class="stat-card success"><div class="stat-num" id="oStatDelivered">–</div><div class="stat-label">Delivered</div></div>
+          <div class="stat-card"><div class="stat-num" id="oStatRevenue">–</div><div class="stat-label">Revenue (today)</div></div>
+        </section>
+
+        <div class="admin-tabs" role="tablist">
+          <button class="admin-tab active"   data-otab="active"           role="tab">Active <span class="tab-count" id="oTabCountActive">0</span></button>
+          <button class="admin-tab"          data-otab="received"         role="tab">Received <span class="tab-count" id="oTabCountReceived">0</span></button>
+          <button class="admin-tab"          data-otab="preparing"        role="tab">Preparing <span class="tab-count" id="oTabCountPreparing">0</span></button>
+          <button class="admin-tab"          data-otab="baking"           role="tab">In oven <span class="tab-count" id="oTabCountBaking">0</span></button>
+          <button class="admin-tab"          data-otab="out_for_delivery" role="tab">On the way <span class="tab-count" id="oTabCountOFD">0</span></button>
+          <button class="admin-tab"          data-otab="delivered"        role="tab">Delivered <span class="tab-count" id="oTabCountDelivered">0</span></button>
+          <button class="admin-tab"          data-otab="all"              role="tab">All</button>
+        </div>
+
+        <div class="admin-toolbar">
+          <input type="search" id="adminOrderSearch" placeholder="Search by name, phone, code, or address…" class="admin-search">
+          <button class="btn btn-secondary" onclick="loadOrders()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            Refresh
+          </button>
+          <label class="admin-toggle">
+            <input type="checkbox" id="adminAutoRefresh" checked>
+            <span>Auto-refresh (15s)</span>
+          </label>
+        </div>
+
+        <section class="admin-list" id="adminOrdersList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+
+      <!-- ============== COUPONS section ============== -->
+      <div class="admin-section" data-section="coupons" hidden>
+        <div class="coupons-head">
+          <div>
+            <h3 class="coupons-title">Promo codes</h3>
+            <p class="coupons-sub">Create codes customers can redeem at checkout. Referral codes auto-generated per customer also show up here.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openCouponForm()">+ New code</button>
+        </div>
+
+        <form class="coupon-form" id="couponForm" hidden onsubmit="saveCoupon(event)">
+          <div class="field">
+            <label for="cpCode">Code</label>
+            <input id="cpCode" type="text" required maxlength="32" placeholder="e.g. WELCOME10" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="cpDesc">Description (optional)</label>
+            <input id="cpDesc" type="text" maxlength="120" placeholder="What is this code for?">
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="cpType">Type</label>
+              <select id="cpType">
+                <option value="percent">Percent off</option>
+                <option value="flat">Flat amount off (Rs.)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="cpValue">Value</label>
+              <input id="cpValue" type="number" min="1" required>
+            </div>
+            <div class="field">
+              <label for="cpMin">Min order (Rs.)</label>
+              <input id="cpMin" type="number" min="0" value="0">
+            </div>
+            <div class="field">
+              <label for="cpMax">Max uses</label>
+              <input id="cpMax" type="number" min="1" placeholder="Unlimited">
+            </div>
+            <div class="field">
+              <label for="cpExpires">Expires</label>
+              <input id="cpExpires" type="date">
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="modal-cancel" onclick="closeCouponForm()">Cancel</button>
+            <button type="submit" class="modal-submit">Save code</button>
+          </div>
+        </form>
+
+        <section class="admin-list" id="adminCouponsList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+
+      <!-- ============== REVIEWS section ============== -->
+      <div class="admin-section" data-section="reviews" hidden>
+        <section class="admin-stats" id="adminStats">
+          <div class="stat-card"><div class="stat-num" id="statTotal">–</div><div class="stat-label">Total</div></div>
+          <div class="stat-card warning"><div class="stat-num" id="statPending">–</div><div class="stat-label">Pending</div></div>
+          <div class="stat-card success"><div class="stat-num" id="statApproved">–</div><div class="stat-label">Approved</div></div>
+          <div class="stat-card"><div class="stat-num" id="statRejected">–</div><div class="stat-label">Rejected</div></div>
+          <div class="stat-card accent"><div class="stat-num" id="statAvg">–</div><div class="stat-label">Avg rating</div></div>
+        </section>
+
+        <div class="admin-tabs" role="tablist">
+          <button class="admin-tab active" data-tab="pending" role="tab">Pending <span class="tab-count" id="tabCountPending">0</span></button>
+          <button class="admin-tab" data-tab="approved" role="tab">Approved <span class="tab-count" id="tabCountApproved">0</span></button>
+          <button class="admin-tab" data-tab="rejected" role="tab">Rejected <span class="tab-count" id="tabCountRejected">0</span></button>
+          <button class="admin-tab" data-tab="all" role="tab">All</button>
+        </div>
+
+        <div class="admin-toolbar">
+          <input type="search" id="adminSearch" placeholder="Search by name, location, or text…" class="admin-search">
+          <button class="btn btn-secondary" onclick="loadAdminData()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            Refresh
+          </button>
+        </div>
+
+        <section class="admin-list" id="adminList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

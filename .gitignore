@@ -1,0 +1,25 @@
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Editor folders
+.vscode/
+.idea/
+*.sublime-*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local environment / secrets (not used here, but future-proof)
+.env
+.env.local
+
+# Optional: ignore zip backups in this folder
+*.zip
+
+# Node (not used yet, but in case you add tooling later)
+node_modules/
