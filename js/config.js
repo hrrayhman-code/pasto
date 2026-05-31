@@ -45,7 +45,7 @@ const CONFIG = {
   instagramHandle: 'pastobyaiman',
 
   // Your email
-  email: 'pastokarachi@gmail.com',
+  email: 'pastobyaiman@gmail.com',
 
   // ============================================
   // CURRENCY
