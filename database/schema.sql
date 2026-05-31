@@ -250,7 +250,12 @@ end $$;
 
 
 -- ----- Validate coupon (callable by anon for live checkout preview) -----
-create or replace function public.validate_coupon(p_code text, p_total int)
+-- p_phone is optional: when provided, prevents customers from redeeming
+-- their own referral code on their own order.
+drop function if exists public.validate_coupon(text, int);
+drop function if exists public.validate_coupon(text, int, text);
+
+create or replace function public.validate_coupon(p_code text, p_total int, p_phone text default null)
 returns table (
   code text, description text, discount_type text, discount_value int,
   computed_discount int, ok boolean, reason text
@@ -285,6 +290,13 @@ begin
       'Minimum order Rs. ' || c.min_order_total;
     return;
   end if;
+  -- Prevent self-use of your own referral code
+  if c.kind = 'referral' and c.owner_phone is not null and p_phone is not null
+     and c.owner_phone = p_phone then
+    return query select c.code, c.description, c.discount_type, c.discount_value, 0, false,
+      'You cannot use your own referral code';
+    return;
+  end if;
 
   if c.discount_type = 'percent' then
     d := round(p_total * c.discount_value / 100.0);
@@ -297,7 +309,7 @@ begin
 end;
 $$;
 
-grant execute on function public.validate_coupon(text, int) to anon, authenticated;
+grant execute on function public.validate_coupon(text, int, text) to anon, authenticated;
 
 
 -- ----- Get loyalty status (callable by anon for customer lookup) -----
@@ -328,8 +340,16 @@ $$;
 grant execute on function public.get_loyalty(text) to anon, authenticated;
 
 
--- ----- Replace place_order to handle coupons, loyalty, referrals -----
+-- ----- Replace place_order:
+--      * automatic buy-5-get-1-free (cheapest item in the cart is free
+--        when total quantity in the order >= 5)
+--      * forwards customer phone to validate_coupon so referrers can't
+--        self-redeem their own code
+--      * still upserts loyalty + returns referral_code, but the credit
+--        system is now driven entirely by per-cart quantity, not history
+-- ------------------------------------------------------------------------
 drop function if exists public.place_order(text, text, text, text, jsonb, int);
+drop function if exists public.place_order(text, text, text, text, jsonb, int, text, boolean);
 
 create or replace function public.place_order(
   p_name        text,
@@ -339,9 +359,12 @@ create or replace function public.place_order(
   p_items       jsonb,
   p_total       int,
   p_coupon_code text default null,
-  p_use_credit  boolean default false
+  p_use_credit  boolean default false   -- kept for backwards compatibility, ignored
 )
-returns table (id uuid, short_code text, referral_code text, discount int, free_used boolean)
+returns table (
+  id uuid, short_code text, referral_code text,
+  discount int, free_used boolean, bulk_free_amount int
+)
 language plpgsql
 security definer
 set search_path = public
@@ -351,7 +374,11 @@ declare
   new_code        text;
   v_discount      int := 0;
   v_coupon        text := null;
+  v_coupon_disc   int := 0;
   v_loyalty       public.loyalty%rowtype;
+  v_total_qty     int := 0;
+  v_cheapest      int := 0;
+  v_bulk_free     int := 0;
   v_free_used     boolean := false;
   v_referral_code text;
 begin
@@ -363,37 +390,44 @@ begin
     raise exception 'Invalid order payload';
   end if;
 
-  -- Validate coupon
+  -- ----- Buy 5, get 1 free (auto) -----
+  select coalesce(sum((it->>'qty')::int), 0)
+    into v_total_qty
+    from jsonb_array_elements(p_items) it;
+
+  if v_total_qty >= 5 then
+    select min((it->>'price')::int)
+      into v_cheapest
+      from jsonb_array_elements(p_items) it
+      where (it->>'price')::int > 0;
+    v_bulk_free := coalesce(v_cheapest, 0);
+    v_discount := v_discount + v_bulk_free;
+    v_free_used := v_bulk_free > 0;
+  end if;
+
+  -- ----- Coupon (now also passes phone to block self-use) -----
   if p_coupon_code is not null and length(trim(p_coupon_code)) > 0 then
-    select computed_discount, code into v_discount, v_coupon
-      from public.validate_coupon(p_coupon_code, p_total)
+    select computed_discount, code
+      into v_coupon_disc, v_coupon
+      from public.validate_coupon(p_coupon_code, p_total, p_phone)
       where ok = true;
     if v_coupon is null then
       raise exception 'Invalid or expired coupon';
     end if;
+    v_discount := v_discount + v_coupon_disc;
   end if;
 
-  -- Upsert loyalty row first to ensure we have a referral_code
+  -- Never discount more than the order total
+  v_discount := least(v_discount, p_total);
+
+  -- ----- Upsert loyalty row (guarantees a referral_code) -----
   insert into public.loyalty (phone, name)
     values (p_phone, p_name)
-    on conflict (phone) do update set name = excluded.name, updated_at = now()
+    on conflict (phone) do update
+      set name = excluded.name, updated_at = now()
     returning * into v_loyalty;
 
-  -- Optionally consume a free credit (skip if discount already large)
-  if p_use_credit and v_loyalty.free_credits > 0 then
-    -- Free credit: discount the cheapest item price (we approximate via min item price in payload)
-    declare cheapest int;
-    begin
-      select min((it->>'price')::int) into cheapest from jsonb_array_elements(p_items) it;
-      v_discount := least(p_total, v_discount + coalesce(cheapest, 0));
-      v_free_used := true;
-      update public.loyalty
-        set free_credits = free_credits - 1, updated_at = now()
-        where phone = p_phone;
-    end;
-  end if;
-
-  -- Insert the order
+  -- ----- Insert the order -----
   insert into public.orders (
     customer_name, customer_phone, customer_address, notes, items, total,
     coupon_code, discount, used_free_credit
@@ -403,27 +437,78 @@ begin
   )
   returning orders.id, orders.short_code into new_id, new_code;
 
-  -- Bump coupon usage
+  -- ----- Bump coupon usage -----
   if v_coupon is not null then
     update public.coupons set used_count = used_count + 1 where code = v_coupon;
   end if;
 
-  -- Bump loyalty order_count; award a free credit on every 5th order
+  -- ----- Bump loyalty order count -----
   update public.loyalty
     set order_count = order_count + 1,
-        free_credits = free_credits + case when (order_count + 1) % 5 = 0 then 1 else 0 end,
-        updated_at = now()
+        updated_at  = now()
     where phone = p_phone
     returning * into v_loyalty;
 
   v_referral_code := v_loyalty.referral_code;
 
-  return query select new_id, new_code, v_referral_code, v_discount, v_free_used;
+  return query select new_id, new_code, v_referral_code, v_discount, v_free_used, v_bulk_free;
 end;
 $$;
 
 grant execute on function public.place_order(text, text, text, text, jsonb, int, text, boolean)
   to anon, authenticated;
+
+
+-- ============================================================
+-- REFERRAL CODE ACTIVATION
+-- ============================================================
+-- When an order is marked 'delivered', this trigger upserts a coupon
+-- row keyed on the customer's referral_code, granting 10% off to anyone
+-- (other than the owner) who redeems it. This guarantees the referrer
+-- must have actually completed an order before their code is live.
+-- ============================================================
+create or replace function public.activate_referral_on_delivery()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_referral_code text;
+  v_customer_name text;
+begin
+  if NEW.status = 'delivered'
+     and (OLD.status is null or OLD.status <> 'delivered')
+  then
+    select referral_code, name
+      into v_referral_code, v_customer_name
+      from public.loyalty
+      where phone = NEW.customer_phone;
+
+    if v_referral_code is not null then
+      insert into public.coupons (
+        code, kind, description,
+        discount_type, discount_value,
+        owner_phone, active, min_order_total
+      ) values (
+        v_referral_code, 'referral',
+        '10% off — referred by ' || coalesce(v_customer_name, NEW.customer_name),
+        'percent', 10,
+        NEW.customer_phone, true, 0
+      )
+      on conflict (code) do update
+        set active = true,
+            description = excluded.description;
+    end if;
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_activate_referral on public.orders;
+create trigger trg_activate_referral
+  after update of status on public.orders
+  for each row execute function public.activate_referral_on_delivery();
 
 
 -- ============================================================

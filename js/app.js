@@ -553,6 +553,23 @@ function cartTotal() {
   }, 0);
 }
 
+// "Buy 5, get 1 free" — when the cart has 5+ items in it (any mix),
+// the cheapest item's price is automatically deducted. Returns
+// { qualifies, freeItem, amount } so the UI can show it nicely.
+function bulkFreeDiscount() {
+  const totalQty = cartItemCount();
+  if (totalQty < 5) return { qualifies: false, freeItem: null, amount: 0 };
+  let cheapest = null;
+  Object.keys(cart).forEach(id => {
+    const item = MENU.find(m => m.id === id);
+    if (!item) return;
+    if (cheapest === null || item.price < cheapest.price) cheapest = item;
+  });
+  return cheapest
+    ? { qualifies: true, freeItem: cheapest, amount: cheapest.price }
+    : { qualifies: false, freeItem: null, amount: 0 };
+}
+
 function updateCartCount() {
   const count = cartItemCount();
   document.getElementById('cartCount').textContent = count;
@@ -578,7 +595,8 @@ function renderCart() {
       </div>
     `;
   } else {
-    body.innerHTML = ids.map(id => {
+    const bulk = bulkFreeDiscount();
+    const itemsHTML = ids.map(id => {
       const item = MENU.find(m => m.id === id);
       const qty = cart[id];
       return `
@@ -596,9 +614,40 @@ function renderCart() {
         </div>
       `;
     }).join('');
+
+    // Buy-5-get-1-free reward block (shown when cart qualifies)
+    const rewardHTML = bulk.qualifies ? `
+      <div class="cart-bulk-reward">
+        <div class="cart-bulk-reward-head">
+          <span class="cart-bulk-reward-tag">★ Reward unlocked</span>
+          <span class="cart-bulk-reward-amount">− ${CONFIG.currency} ${bulk.amount}</span>
+        </div>
+        <div class="cart-bulk-reward-body">
+          You've ordered 5+ items — your <strong>${bulk.freeItem.name}</strong> is on us!
+        </div>
+      </div>
+    ` : (cartItemCount() > 0 ? `
+      <div class="cart-bulk-hint">
+        Add ${5 - cartItemCount()} more item${5 - cartItemCount() === 1 ? '' : 's'} to get the cheapest one <strong>free</strong>.
+      </div>
+    ` : '');
+
+    body.innerHTML = itemsHTML + rewardHTML;
   }
 
-  document.getElementById('cartTotal').textContent = `${CONFIG.currency} ${cartTotal()}`;
+  // Cart total now reflects buy-5-get-1-free
+  const subtotal = cartTotal();
+  const bulk = bulkFreeDiscount();
+  const payable = Math.max(0, subtotal - bulk.amount);
+  const totalEl = document.getElementById('cartTotal');
+  if (bulk.qualifies) {
+    totalEl.innerHTML = `
+      <span class="cart-total-strike">${CONFIG.currency} ${subtotal}</span>
+      ${CONFIG.currency} ${payable}
+    `;
+  } else {
+    totalEl.textContent = `${CONFIG.currency} ${subtotal}`;
+  }
 }
 
 
@@ -656,6 +705,9 @@ async function applyCoupon() {
   const feedback = document.getElementById('couponFeedback');
   const code = (input.value || '').trim();
   const total = cartTotal();
+  // Forward the buyer's phone so the server can block self-use of
+  // a customer's own referral code.
+  const phone = (document.getElementById('custPhone')?.value || '').trim() || null;
 
   if (!code) {
     _appliedCoupon = null;
@@ -669,10 +721,10 @@ async function applyCoupon() {
   feedback.className = 'coupon-feedback';
 
   try {
-    const result = await RewardsAPI.validateCoupon(code, total);
+    const result = await RewardsAPI.validateCoupon(code, total, phone);
     if (result && result.ok) {
       _appliedCoupon = result;
-      feedback.textContent = `${result.code} applied — you save Rs. ${result.computed_discount}`;
+      feedback.textContent = `${result.code} applied — you save ${CONFIG.currency} ${result.computed_discount}`;
       feedback.className = 'coupon-feedback ok';
     } else {
       _appliedCoupon = null;
@@ -706,7 +758,6 @@ async function refreshLoyaltyForCheckout() {
       renderCheckoutTotal();
       return;
     }
-    const credits = row.free_credits || 0;
     wrap.hidden = false;
     wrap.innerHTML = `
       <div class="loyalty-mini">
@@ -714,13 +765,12 @@ async function refreshLoyaltyForCheckout() {
           <span class="loyalty-mini-title">Welcome back, ${escapeHTML(row.name || 'friend')}!</span>
           <span class="loyalty-mini-count">${row.order_count} order${row.order_count === 1 ? '' : 's'}</span>
         </div>
-        ${stampRow(row.progress)}
-        ${credits > 0 ? `
-          <label class="loyalty-credit-row">
-            <input type="checkbox" id="useFreeCredit" ${_useFreeCredit ? 'checked' : ''} onchange="toggleFreeCredit(this.checked)">
-            <span><strong>${credits}</strong> free item credit${credits === 1 ? '' : 's'} available — use one on this order?</span>
-          </label>
-        ` : `<div class="loyalty-mini-next">${5 - row.progress} more order${5 - row.progress === 1 ? '' : 's'} until your free item!</div>`}
+        ${row.referral_code ? `
+          <div class="loyalty-mini-ref">
+            Your referral code: <strong>${escapeHTML(row.referral_code)}</strong>
+            — share it after delivery for friends to get 10% off.
+          </div>
+        ` : ''}
       </div>
     `;
   } catch (err) {
@@ -744,33 +794,21 @@ function stampRow(progress) {
   return html;
 }
 
-function estimateFreeCreditDiscount() {
-  if (!_useFreeCredit) return 0;
-  if (!_loyaltyForCheckout || !_loyaltyForCheckout.free_credits) return 0;
-  // Match server-side logic: cheapest item in the cart
-  let min = Infinity;
-  Object.keys(cart).forEach(id => {
-    const item = MENU.find(m => m.id === id);
-    if (item && item.price < min) min = item.price;
-  });
-  return min === Infinity ? 0 : min;
-}
-
 function renderCheckoutTotal() {
   const wrap = document.getElementById('checkoutTotal');
   if (!wrap) return;
   const total = cartTotal();
+  const bulk = bulkFreeDiscount();                              // auto buy-5-get-1-free
   const couponDisc = _appliedCoupon?.computed_discount || 0;
-  const creditDisc = estimateFreeCreditDiscount();
-  const totalDisc = Math.min(total, couponDisc + creditDisc);
+  const totalDisc = Math.min(total, bulk.amount + couponDisc);
   const payable = Math.max(0, total - totalDisc);
 
   const lines = [`<div class="ct-line"><span>Subtotal</span><span>${CONFIG.currency} ${total}</span></div>`];
+  if (bulk.qualifies && bulk.amount > 0) {
+    lines.push(`<div class="ct-line ct-disc"><span>★ Free ${escapeHTML(bulk.freeItem.name)} (5+ items)</span><span>− ${CONFIG.currency} ${bulk.amount}</span></div>`);
+  }
   if (couponDisc > 0) {
     lines.push(`<div class="ct-line ct-disc"><span>Promo ${escapeHTML(_appliedCoupon.code)}</span><span>− ${CONFIG.currency} ${couponDisc}</span></div>`);
-  }
-  if (creditDisc > 0) {
-    lines.push(`<div class="ct-line ct-disc"><span>Free item credit</span><span>− ${CONFIG.currency} ${creditDisc}</span></div>`);
   }
   lines.push(`<div class="ct-line ct-total"><span>You pay</span><span>${CONFIG.currency} ${payable}</span></div>`);
   wrap.innerHTML = lines.join('');
@@ -841,9 +879,11 @@ async function submitOrder() {
   items.forEach(it => {
     msg += `• ${it.qty}× ${it.name} — ${CONFIG.currency} ${it.price * it.qty}\n`;
   });
+  const bulkFree = placed.bulk_free_amount || 0;
+  const couponDisc = Math.max(0, discount - bulkFree);
   msg += `\n*Subtotal:* ${CONFIG.currency} ${total}\n`;
-  if (coupon)        msg += `*Promo:* ${coupon} (−${CONFIG.currency} ${discount})\n`;
-  if (placed.free_used) msg += `*Loyalty free item credit applied*\n`;
+  if (bulkFree > 0)  msg += `*Buy 5 get 1 free:* −${CONFIG.currency} ${bulkFree}\n`;
+  if (coupon && couponDisc > 0) msg += `*Promo ${coupon}:* −${CONFIG.currency} ${couponDisc}\n`;
   if (discount > 0)  msg += `*Total payable:* ${CONFIG.currency} ${payable}\n`;
   else               msg += `*Total:* ${CONFIG.currency} ${total}\n`;
   msg += `*Payment:* Cash on delivery`;

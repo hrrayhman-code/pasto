@@ -179,9 +179,9 @@ const OrdersAPI = {
 // ==================================================
 const RewardsAPI = {
   // ----- Public -----
-  async validateCoupon(code, total) {
+  async validateCoupon(code, total, phone = null) {
     const { data, error } = await sb.rpc('validate_coupon', {
-      p_code: code, p_total: total
+      p_code: code, p_total: total, p_phone: phone
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
