@@ -226,6 +226,88 @@ const RewardsAPI = {
 
 
 // ==================================================
+// MENU API  (admin-managed menu items)
+// ==================================================
+const MenuAPI = {
+  async listActive() {
+    const { data, error } = await sb
+      .from('menu_items').select('*')
+      .eq('active', true)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+  async listAll() {
+    const { data, error } = await sb
+      .from('menu_items').select('*')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+  async create(payload) {
+    const { error } = await sb.from('menu_items').insert(payload);
+    if (error) throw error;
+  },
+  async update(id, patch) {
+    const { error } = await sb.from('menu_items').update(patch).eq('id', id);
+    if (error) throw error;
+  },
+  async remove(id) {
+    const { error } = await sb.from('menu_items').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async uploadImage(file, itemId) {
+    if (!file) throw new Error('No file selected');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const safeId = (itemId || 'item').replace(/[^a-z0-9_-]/gi, '');
+    const path = `${safeId}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage
+      .from('menu-images')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) throw error;
+    const { data: urlData } = sb.storage.from('menu-images').getPublicUrl(path);
+    return urlData.publicUrl;
+  }
+};
+
+// ==================================================
+// SETTINGS API  (site-wide key/value bag)
+// ==================================================
+const SettingsAPI = {
+  async getAll() {
+    const { data, error } = await sb.from('site_settings').select('*');
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = r.value; });
+    return map;
+  },
+  async get(key) {
+    const { data, error } = await sb
+      .from('site_settings').select('value').eq('key', key).maybeSingle();
+    if (error) throw error;
+    return data?.value || null;
+  },
+  async set(key, value) {
+    const { error } = await sb
+      .from('site_settings')
+      .upsert({ key, value, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  },
+  async uploadSiteImage(file, prefix = 'hero') {
+    if (!file) throw new Error('No file selected');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${prefix}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage
+      .from('site-images')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) throw error;
+    const { data: urlData } = sb.storage.from('site-images').getPublicUrl(path);
+    return urlData.publicUrl;
+  }
+};
+
+
+// ==================================================
 // AUTH HELPERS (used by admin dashboard)
 // ==================================================
 const AuthAPI = {

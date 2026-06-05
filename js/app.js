@@ -1131,10 +1131,66 @@ function observeReveals() {
 
 
 // ==================================================
+// LIVE MENU + SITE SETTINGS
+// ==================================================
+// Fetch the admin-curated menu from Supabase. Falls back to the local
+// MENU array (from config.js) if the request fails — that keeps the
+// site working even if the database is briefly unreachable.
+async function loadMenuFromDB() {
+  try {
+    const rows = await MenuAPI.listActive();
+    if (rows && rows.length > 0) {
+      MENU = rows.map(r => ({
+        id:          r.id,
+        name:        r.name,
+        desc:        r.description || '',
+        price:       r.price,
+        tag:         r.tag,
+        tagLabel:    r.tag_label,
+        imageUrl:    r.image_url,
+        iconColor:   r.icon_color,
+        accentColor: r.accent_color
+      }));
+    }
+  } catch (err) {
+    console.warn('[Pasto] Could not load menu from server, using fallback:', err);
+  }
+  renderMenu();
+  renderCart();
+  updateCartCount();
+}
+
+// Apply admin-uploaded hero image (if any) over the SVG illustration.
+async function loadSiteSettings() {
+  try {
+    const settings = await SettingsAPI.getAll();
+    const heroUrl = settings.hero_image_url;
+    const heroVisual = document.querySelector('.hero-visual');
+    if (heroUrl && heroVisual) {
+      heroVisual.classList.add('has-photo');
+      // Insert/replace a wrapper img above the SVGs so the photo dominates
+      let img = heroVisual.querySelector('.hero-photo');
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'hero-photo';
+        img.alt = 'Pasto signature dish';
+        heroVisual.insertBefore(img, heroVisual.firstChild);
+      }
+      img.src = heroUrl;
+    }
+  } catch (err) {
+    console.warn('[Pasto] Could not load site settings:', err);
+  }
+}
+
+
+// ==================================================
 // INITIALIZATION
 // ==================================================
 document.addEventListener('DOMContentLoaded', () => {
-  renderMenu();
+  renderMenu();                  // immediate paint with fallback
+  loadMenuFromDB();              // then replace with DB data
+  loadSiteSettings();            // apply hero image if set
   renderReviews();
   setupRatingInput();
   renderCart();

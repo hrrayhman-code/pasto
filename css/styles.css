@@ -242,6 +242,20 @@ a { color: inherit; text-decoration: none; }
   position: relative;
 }
 
+/* When admin uploads a hero photo, hide the SVG illustrations
+   and show the photo in their place. Mascot + stamp still
+   overlay on top for branding flourish. */
+.hero-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid var(--charcoal);
+  box-shadow: 0 24px 48px -16px rgba(26, 26, 26, 0.25);
+  display: block;
+}
+.hero-visual.has-photo .hero-bowl { display: none; }
+
 .hero-mascot {
   position: absolute;
   top: -20px;
@@ -1994,6 +2008,100 @@ a { color: inherit; text-decoration: none; }
   gap: 12px 20px;
   padding: 8px 0;
   font-size: 14px;
+}
+
+/* ============================================
+   ADMIN — MENU MANAGEMENT
+   ============================================ */
+.menu-row { padding: 16px 20px; }
+.menu-row-grid {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.menu-row-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1.5px solid rgba(26,26,26,0.12);
+  background: var(--cream-dark);
+}
+.menu-row-thumb.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 40px;
+  font-weight: 500;
+}
+.menu-row-desc { font-family: var(--sans); font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.menu-row.inactive { opacity: 0.55; }
+
+.menu-form-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.menu-form-preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1.5px solid rgba(26,26,26,0.12);
+}
+
+/* ============================================
+   ADMIN — SITE IMAGE PANEL
+   ============================================ */
+.site-image-panel {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  background: var(--cream);
+  border: 1.5px solid var(--charcoal);
+  border-radius: 18px;
+  padding: 22px;
+}
+@media (max-width: 700px) {
+  .site-image-panel { grid-template-columns: 1fr; }
+}
+.site-image-current-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.site-image-current-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  background: var(--cream-dark);
+  border: 1.5px dashed rgba(26,26,26,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+}
+.site-image-current-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.site-image-empty {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 12px;
+  line-height: 1.5;
 }
 
 /* ============================================

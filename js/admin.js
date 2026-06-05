@@ -160,6 +160,8 @@ function showDashboard(session) {
   loadAdminData();
   loadOrders();
   loadCoupons();
+  loadMenuItems();
+  loadSiteImagePreview();
   setupOrdersAutoRefresh();
 }
 
@@ -631,6 +633,236 @@ async function deleteCoupon(code) {
     loadCoupons();
   } catch (err) { showToast('Failed: ' + err.message); }
 }
+
+
+// ==================================================
+// MENU MANAGEMENT
+// ==================================================
+let _menuCache = [];
+
+async function loadMenuItems() {
+  const list = document.getElementById('adminMenuList');
+  if (!list) return;
+  try {
+    _menuCache = await MenuAPI.listAll();
+    if (_menuCache.length === 0) {
+      list.innerHTML = `<div class="admin-empty">No items yet — click "+ New item" to add one.</div>`;
+      return;
+    }
+    list.innerHTML = _menuCache.map(renderMenuRow).join('');
+  } catch (err) {
+    list.innerHTML = `<div class="admin-empty error">Failed to load menu: ${escapeHTML(err.message)}</div>`;
+  }
+}
+
+function renderMenuRow(m) {
+  const imgHTML = m.image_url
+    ? `<img src="${escapeHTML(m.image_url)}" alt="" class="menu-row-thumb">`
+    : `<div class="menu-row-thumb placeholder" style="background:${escapeHTML(m.icon_color)};color:${escapeHTML(m.accent_color)}">P</div>`;
+  return `
+    <article class="admin-row menu-row ${m.active ? '' : 'inactive'}">
+      <div class="menu-row-grid">
+        ${imgHTML}
+        <div class="menu-row-info">
+          <div class="admin-row-head">
+            <div class="admin-row-meta">
+              <span class="admin-row-name">${escapeHTML(m.name)}</span>
+              <span class="admin-row-sub">· ${escapeHTML(m.id)}</span>
+              <span class="admin-row-sub">· Rs. ${m.price}</span>
+              ${m.tag ? `<span class="badge order-status-${m.tag === 'signature' ? 'baking' : m.tag === 'veg' ? 'delivered' : 'preparing'}">${escapeHTML(m.tag_label || m.tag)}</span>` : ''}
+              ${!m.active ? `<span class="badge coupon-status-badge-inactive">Hidden</span>` : ''}
+            </div>
+            <div class="admin-row-badges">
+              <span class="admin-row-sub">Order: ${m.sort_order}</span>
+            </div>
+          </div>
+          <p class="admin-row-quote menu-row-desc">${escapeHTML(m.description || '')}</p>
+        </div>
+      </div>
+      <div class="admin-row-actions">
+        <button class="admin-action" onclick='editMenuItem(${JSON.stringify(m.id)})'>Edit</button>
+        <button class="admin-action ${m.active ? 'reject' : 'approve'}" onclick='toggleMenuActive(${JSON.stringify(m.id)}, ${!m.active})'>
+          ${m.active ? 'Hide' : 'Show'}
+        </button>
+        <button class="admin-action danger" onclick='deleteMenuItem(${JSON.stringify(m.id)})'>Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function openMenuForm() {
+  resetMenuForm();
+  document.getElementById('menuForm').hidden = false;
+  document.getElementById('miId').focus();
+}
+function closeMenuForm() {
+  document.getElementById('menuForm').hidden = true;
+  resetMenuForm();
+}
+function resetMenuForm() {
+  const f = document.getElementById('menuForm');
+  if (f) f.reset();
+  document.getElementById('miOriginalId').value = '';
+  document.getElementById('miImageUrl').value = '';
+  document.getElementById('miImagePreview').hidden = true;
+  document.getElementById('miImagePreview').innerHTML = '';
+  document.getElementById('miIconColor').value = '#FFF8F0';
+  document.getElementById('miAccentColor').value = '#E63946';
+  document.getElementById('miActive').checked = true;
+}
+
+function editMenuItem(id) {
+  const m = _menuCache.find(x => x.id === id);
+  if (!m) return;
+  openMenuForm();
+  document.getElementById('miOriginalId').value = m.id;
+  document.getElementById('miId').value = m.id;
+  document.getElementById('miId').readOnly = true;
+  document.getElementById('miName').value = m.name;
+  document.getElementById('miDesc').value = m.description || '';
+  document.getElementById('miPrice').value = m.price;
+  document.getElementById('miTag').value = m.tag || 'signature';
+  document.getElementById('miTagLabel').value = m.tag_label || '';
+  document.getElementById('miIconColor').value = m.icon_color || '#FFF8F0';
+  document.getElementById('miAccentColor').value = m.accent_color || '#E63946';
+  document.getElementById('miSortOrder').value = m.sort_order || 0;
+  document.getElementById('miActive').checked = !!m.active;
+  document.getElementById('miImageUrl').value = m.image_url || '';
+  const prev = document.getElementById('miImagePreview');
+  if (m.image_url) {
+    prev.hidden = false;
+    prev.innerHTML = `<img src="${escapeHTML(m.image_url)}" alt=""><span>Current image — pick a file above to replace.</span>`;
+  } else {
+    prev.hidden = true;
+    prev.innerHTML = '';
+  }
+}
+
+async function saveMenuItem(e) {
+  e.preventDefault();
+  const isNew = !document.getElementById('miOriginalId').value;
+  const id = document.getElementById('miId').value.trim().toLowerCase();
+  const fileInput = document.getElementById('miImage');
+  const existingUrl = document.getElementById('miImageUrl').value || null;
+
+  if (!id) { showToast('ID is required'); return; }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+
+  try {
+    let imageUrl = existingUrl;
+    if (fileInput.files && fileInput.files[0]) {
+      submitBtn.textContent = 'Uploading photo…';
+      imageUrl = await MenuAPI.uploadImage(fileInput.files[0], id);
+    }
+
+    const payload = {
+      id,
+      name: document.getElementById('miName').value.trim(),
+      description: document.getElementById('miDesc').value.trim(),
+      price: parseInt(document.getElementById('miPrice').value, 10),
+      tag: document.getElementById('miTag').value || 'signature',
+      tag_label: document.getElementById('miTagLabel').value.trim() || 'Signature',
+      icon_color: document.getElementById('miIconColor').value,
+      accent_color: document.getElementById('miAccentColor').value,
+      sort_order: parseInt(document.getElementById('miSortOrder').value, 10) || 0,
+      active: document.getElementById('miActive').checked,
+      image_url: imageUrl
+    };
+
+    if (isNew) {
+      await MenuAPI.create(payload);
+    } else {
+      // ID is immutable after creation; strip it from patch
+      const { id: _omit, ...patch } = payload;
+      await MenuAPI.update(id, patch);
+    }
+    document.getElementById('miId').readOnly = false;
+    showToast(isNew ? 'Item added' : 'Item updated');
+    closeMenuForm();
+    loadMenuItems();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed: ' + (err.message || ''));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save item';
+  }
+}
+
+async function toggleMenuActive(id, active) {
+  try {
+    await MenuAPI.update(id, { active });
+    loadMenuItems();
+    showToast(active ? 'Item visible on site' : 'Item hidden from site');
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+async function deleteMenuItem(id) {
+  if (!confirm(`Delete "${id}" permanently? Orders that already used this item are unaffected.`)) return;
+  try {
+    await MenuAPI.remove(id);
+    loadMenuItems();
+    showToast('Deleted');
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+
+// ==================================================
+// SITE IMAGE (hero photo)
+// ==================================================
+async function loadSiteImagePreview() {
+  const img = document.getElementById('siteHeroPreview');
+  const empty = document.getElementById('siteHeroEmpty');
+  if (!img) return;
+  try {
+    const url = await SettingsAPI.get('hero_image_url');
+    if (url) {
+      img.src = url;
+      img.style.display = 'block';
+      empty.style.display = 'none';
+    } else {
+      img.style.display = 'none';
+      empty.style.display = 'block';
+    }
+  } catch (err) {
+    console.warn('settings load failed', err);
+  }
+}
+
+async function saveHeroImage(e) {
+  e.preventDefault();
+  const input = document.getElementById('siHeroFile');
+  if (!input.files || !input.files[0]) { showToast('Pick an image'); return; }
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Uploading…';
+  try {
+    const url = await SettingsAPI.uploadSiteImage(input.files[0], 'hero');
+    await SettingsAPI.set('hero_image_url', url);
+    showToast('Hero image applied — reload the homepage to verify');
+    input.value = '';
+    loadSiteImagePreview();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed: ' + (err.message || ''));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Upload and apply';
+  }
+}
+
+async function clearHeroImage() {
+  if (!confirm('Remove the hero image and restore the SVG illustration?')) return;
+  try {
+    await SettingsAPI.set('hero_image_url', '');
+    showToast('Hero image cleared');
+    loadSiteImagePreview();
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootstrap);

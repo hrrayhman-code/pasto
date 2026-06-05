@@ -59,11 +59,13 @@
     </header>
 
     <main class="admin-main">
-      <!-- Top-level tabs: Orders / Reviews / Coupons -->
+      <!-- Top-level tabs: Orders / Menu / Reviews / Coupons / Site -->
       <div class="admin-section-tabs" role="tablist">
         <button class="admin-section-tab active" data-section="orders"  role="tab">Orders</button>
+        <button class="admin-section-tab"        data-section="menu"    role="tab">Menu</button>
         <button class="admin-section-tab"        data-section="reviews" role="tab">Reviews</button>
         <button class="admin-section-tab"        data-section="coupons" role="tab">Coupons</button>
+        <button class="admin-section-tab"        data-section="site"    role="tab">Site</button>
       </div>
 
       <!-- ============== ORDERS section ============== -->
@@ -186,6 +188,118 @@
         <section class="admin-list" id="adminList">
           <div class="admin-empty">Loading…</div>
         </section>
+      </div>
+
+      <!-- ============== MENU section ============== -->
+      <div class="admin-section" data-section="menu" hidden>
+        <div class="coupons-head">
+          <div>
+            <h3 class="coupons-title">Menu items</h3>
+            <p class="coupons-sub">Add, edit, reorder, and disable dishes. Photos appear on the menu cards.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openMenuForm()">+ New item</button>
+        </div>
+
+        <form class="coupon-form menu-form" id="menuForm" hidden onsubmit="saveMenuItem(event)">
+          <input type="hidden" id="miOriginalId" value="">
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="miId">ID (slug, lowercase, no spaces)</label>
+              <input id="miId" type="text" required pattern="[a-z0-9_-]+" placeholder="e.g. carbonara" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="miName">Name</label>
+              <input id="miName" type="text" required maxlength="60" placeholder="Pasta Carbonara">
+            </div>
+            <div class="field">
+              <label for="miPrice">Price (Rs.)</label>
+              <input id="miPrice" type="number" min="1" required>
+            </div>
+            <div class="field">
+              <label for="miSortOrder">Sort order</label>
+              <input id="miSortOrder" type="number" min="0" value="10">
+            </div>
+          </div>
+          <div class="field">
+            <label for="miDesc">Description</label>
+            <textarea id="miDesc" maxlength="400" rows="2" placeholder="A few words customers will see on the card"></textarea>
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="miTag">Tag (badge)</label>
+              <select id="miTag">
+                <option value="signature">Signature (red)</option>
+                <option value="veg">Veg / Side (green)</option>
+                <option value="spicy">Spicy (orange)</option>
+                <option value="">None (dark)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="miTagLabel">Tag text</label>
+              <input id="miTagLabel" type="text" maxlength="20" placeholder="Signature" value="Signature">
+            </div>
+            <div class="field">
+              <label for="miIconColor">Icon background</label>
+              <input id="miIconColor" type="color" value="#FFF8F0">
+            </div>
+            <div class="field">
+              <label for="miAccentColor">Accent color</label>
+              <input id="miAccentColor" type="color" value="#E63946">
+            </div>
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="miImage">Photo (optional)</label>
+              <input id="miImage" type="file" accept="image/*">
+              <div class="menu-form-preview" id="miImagePreview" hidden></div>
+              <input type="hidden" id="miImageUrl" value="">
+            </div>
+            <div class="field">
+              <label class="admin-toggle" style="margin-top: 28px;">
+                <input type="checkbox" id="miActive" checked>
+                <span>Active (visible on site)</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="modal-cancel" onclick="closeMenuForm()">Cancel</button>
+            <button type="submit" class="modal-submit">Save item</button>
+          </div>
+        </form>
+
+        <section class="admin-list" id="adminMenuList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+
+      <!-- ============== SITE section (hero image, etc) ============== -->
+      <div class="admin-section" data-section="site" hidden>
+        <div class="coupons-head">
+          <div>
+            <h3 class="coupons-title">Site image</h3>
+            <p class="coupons-sub">Upload a photo to appear in the top-right of the homepage hero. Replaces the SVG pasta bowl. Square or near-square images work best.</p>
+          </div>
+        </div>
+
+        <div class="site-image-panel" id="siteImagePanel">
+          <div class="site-image-current">
+            <div class="site-image-current-label">Current hero image</div>
+            <div class="site-image-current-wrap">
+              <img id="siteHeroPreview" alt="" style="display:none">
+              <div class="site-image-empty" id="siteHeroEmpty">No image set — the SVG illustration is showing.</div>
+            </div>
+          </div>
+          <form class="site-image-form" id="siteHeroForm" onsubmit="saveHeroImage(event)">
+            <div class="field">
+              <label for="siHeroFile">Upload new image</label>
+              <input id="siHeroFile" type="file" accept="image/*" required>
+            </div>
+            <div class="modal-foot" style="justify-content: flex-start; gap: 10px;">
+              <button type="submit" class="modal-submit">Upload and apply</button>
+              <button type="button" class="modal-cancel" onclick="clearHeroImage()">Remove image</button>
+            </div>
+          </form>
+        </div>
       </div>
     </main>
   </div>

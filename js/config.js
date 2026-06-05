@@ -81,7 +81,10 @@ const CONFIG = {
 //   - any other text just shows as a dark badge
 // ==================================================
 
-const MENU = [
+// Menu is now managed from the admin dashboard and stored in Supabase.
+// The array below is just a fallback shown on first paint while the API
+// loads — app.js will overwrite MENU with the live database contents.
+let MENU = [
   {
     id: 'alfredo',
     name: 'Pasta Alfredo',

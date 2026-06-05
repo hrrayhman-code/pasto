@@ -512,6 +512,112 @@ create trigger trg_activate_referral
 
 
 -- ============================================================
+-- MENU ITEMS  (admin-managed via admin.html → Menu tab)
+-- ============================================================
+create table if not exists public.menu_items (
+  id           text primary key,                 -- short slug, used as cart key
+  name         text not null,
+  description  text not null default '',
+  price        int  not null check (price > 0),
+  tag          text not null default 'signature',
+  tag_label    text not null default 'Signature',
+  image_url    text,                             -- Supabase Storage URL
+  icon_color   text not null default '#FFF8F0',
+  accent_color text not null default '#E63946',
+  sort_order   int  not null default 0,
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create or replace function public.touch_menu_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at := now(); return new; end; $$;
+drop trigger if exists trg_menu_touch on public.menu_items;
+create trigger trg_menu_touch
+  before update on public.menu_items
+  for each row execute function public.touch_menu_updated_at();
+
+alter table public.menu_items enable row level security;
+drop policy if exists "public_read_active_menu" on public.menu_items;
+drop policy if exists "auth_menu_all"           on public.menu_items;
+
+create policy "public_read_active_menu"
+  on public.menu_items for select
+  to anon, authenticated
+  using (active = true);
+
+create policy "auth_menu_all"
+  on public.menu_items for all
+  to authenticated using (true) with check (true);
+
+-- Seed the five existing items so existing carts / orders keep working.
+-- Re-running this won't clobber edits because of ON CONFLICT DO NOTHING.
+insert into public.menu_items (id, name, description, price, tag, tag_label, icon_color, accent_color, sort_order) values
+  ('alfredo','Pasta Alfredo','Creamy parmigiano-laced sauce over hand-rolled fettuccine, with cracked black pepper and a hint of nutmeg.',650,'signature','Signature','#FFF8F0','#E63946',1),
+  ('pink','Pink Sauce Pasta','Slow-simmered tomato cream sauce with garlic, herbs, and a touch of chili. Comforting, balanced, addictive.',700,'signature','Signature','#FFE0E0','#E63946',2),
+  ('green','Lean Green Pasta','Fresh basil pesto with spinach, olive oil, garlic, and parmigiano. Bright, herby, satisfying.',750,'spicy','Spicy','#E8F0E2','#2d6a3f',3),
+  ('garlic','Classic Garlic Bread','Buttery, garlicky, herbed bread toasted till the edges crisp. Made fresh, never reheated.',250,'veg','Side','#F5E8C8','#C9A876',4),
+  ('sausage','Smoky Sausage Bruschetta','Toasted bread topped with smoky sausage, tomato, herbs, and olive oil. Hearty bite-sized starter.',350,'spicy','Side','#FFE0CC','#d97706',5)
+on conflict (id) do nothing;
+
+
+-- ============================================================
+-- SITE SETTINGS  (key/value bag for things like hero image URL)
+-- ============================================================
+create table if not exists public.site_settings (
+  key        text primary key,
+  value      text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.site_settings enable row level security;
+drop policy if exists "public_read_settings" on public.site_settings;
+drop policy if exists "auth_settings_all"    on public.site_settings;
+
+create policy "public_read_settings"
+  on public.site_settings for select
+  to anon, authenticated using (true);
+
+create policy "auth_settings_all"
+  on public.site_settings for all
+  to authenticated using (true) with check (true);
+
+
+-- ============================================================
+-- STORAGE — buckets for menu item photos and the hero image
+-- ============================================================
+insert into storage.buckets (id, name, public)
+  values ('menu-images', 'menu-images', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public)
+  values ('site-images', 'site-images', true) on conflict (id) do nothing;
+
+-- Storage RLS: public read, authenticated write.
+drop policy if exists "public_read_menu_images" on storage.objects;
+drop policy if exists "auth_write_menu_images"  on storage.objects;
+drop policy if exists "public_read_site_images" on storage.objects;
+drop policy if exists "auth_write_site_images"  on storage.objects;
+
+create policy "public_read_menu_images"
+  on storage.objects for select to anon, authenticated
+  using (bucket_id = 'menu-images');
+
+create policy "auth_write_menu_images"
+  on storage.objects for all to authenticated
+  using (bucket_id = 'menu-images')
+  with check (bucket_id = 'menu-images');
+
+create policy "public_read_site_images"
+  on storage.objects for select to anon, authenticated
+  using (bucket_id = 'site-images');
+
+create policy "auth_write_site_images"
+  on storage.objects for all to authenticated
+  using (bucket_id = 'site-images')
+  with check (bucket_id = 'site-images');
+
+
+-- ============================================================
 -- Done. Next steps:
 --   1. Authentication → Users → "Add user" → create your admin
 --      account (email + password). This is who logs into admin.html.

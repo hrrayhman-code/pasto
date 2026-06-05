@@ -100,9 +100,22 @@ This account is what you'll use to sign into `admin.html`.
 
 ### Re-run the schema
 The script in `database/schema.sql` is idempotent — re-running it
-adds the new `loyalty` + `coupons` tables, new RPCs, and the new
-columns on `orders`. Run it again from Supabase → SQL Editor any
-time you pull updates.
+adds new tables, RPCs, and storage buckets without affecting your
+data. Run it again from Supabase → SQL Editor any time you pull
+updates.
+
+### Admin-managed menu + hero image
+- **Menu** (admin.html → Menu tab): add new dishes, edit name /
+  price / description, upload a photo, set display order, toggle
+  visibility. Items live in the `menu_items` table; the homepage
+  fetches them on every page load.
+- **Site image** (admin.html → Site tab): upload a photo to appear
+  in the top-right of the homepage hero, replacing the SVG pasta
+  bowl. Stored as the `hero_image_url` row in `site_settings`.
+- Photos upload to two public Supabase Storage buckets
+  (`menu-images` and `site-images`) which the schema creates
+  automatically with the correct public-read / authenticated-write
+  policies.
 
 ---
 
