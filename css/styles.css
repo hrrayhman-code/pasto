@@ -2113,7 +2113,7 @@ a { color: inherit; text-decoration: none; }
   gap: 8px;
 }
 @media (min-width: 520px) {
-  .pay-picker { grid-template-columns: 1fr 1fr 1fr; }
+  .pay-picker { grid-template-columns: 1fr 1fr; }
 }
 .pay-option {
   display: block;
