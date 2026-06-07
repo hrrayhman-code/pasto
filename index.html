@@ -570,6 +570,61 @@
       <div class="coupon-feedback" id="couponFeedback"></div>
     </div>
     <div class="checkout-loyalty" id="checkoutLoyalty" hidden></div>
+
+    <!-- Payment method picker -->
+    <div class="field">
+      <label>Payment method</label>
+      <div class="pay-picker" id="payPicker">
+        <label class="pay-option active">
+          <input type="radio" name="payMethod" value="cod" checked onchange="onPayMethodChange()">
+          <span class="pay-option-body">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+            <span class="pay-option-title">Cash on delivery</span>
+            <span class="pay-option-desc">Pay the rider when your order arrives.</span>
+          </span>
+        </label>
+        <label class="pay-option">
+          <input type="radio" name="payMethod" value="bank_transfer" onchange="onPayMethodChange()">
+          <span class="pay-option-body">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-5 7 5v11M9 21V13h6v8"/></svg>
+            <span class="pay-option-title">Bank transfer</span>
+            <span class="pay-option-desc">Transfer to our account, upload the screenshot.</span>
+          </span>
+        </label>
+        <label class="pay-option">
+          <input type="radio" name="payMethod" value="card" onchange="onPayMethodChange()">
+          <span class="pay-option-body">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="11" x2="22" y2="11"/></svg>
+            <span class="pay-option-title">Card / online</span>
+            <span class="pay-option-desc">Visa, Mastercard, PayPak — secure link via WhatsApp.</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Bank transfer panel (shown when method = bank_transfer) -->
+    <div class="pay-panel" id="bankPanel" hidden>
+      <div class="pay-panel-head">Transfer to:</div>
+      <dl class="bank-details" id="bankDetails">
+        <div><dt>Loading…</dt><dd></dd></div>
+      </dl>
+      <div class="field">
+        <label for="payProof">Upload payment screenshot</label>
+        <input type="file" id="payProof" accept="image/*">
+        <div class="pay-proof-preview" id="payProofPreview" hidden></div>
+        <div class="pay-hint">JPG or PNG · we'll verify within ~10 minutes and start cooking.</div>
+      </div>
+    </div>
+
+    <!-- Card payment panel -->
+    <div class="pay-panel" id="cardPanel" hidden>
+      <div class="pay-panel-head">How card payment works</div>
+      <p class="pay-card-note" id="payCardNote">
+        After you submit your order, we'll WhatsApp you a secure payment link.
+        Pay with Visa, Mastercard, or PayPak — your order goes into the kitchen the moment payment is confirmed.
+      </p>
+    </div>
+
     <div class="checkout-total" id="checkoutTotal"></div>
     <div class="modal-foot">
       <button class="modal-cancel" onclick="closeModal()">Cancel</button>

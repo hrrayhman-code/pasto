@@ -675,7 +675,82 @@ function openCheckoutModal() {
     document.body.style.overflow = 'hidden';
     renderCheckoutTotal();
     refreshLoyaltyForCheckout();
+    loadBankDetails();
+    onPayMethodChange();
   }, 300);
+}
+
+// ----- Payment method handling -----
+let _bankSettings = null;
+
+async function loadBankDetails() {
+  const bankEl = document.getElementById('bankDetails');
+  const cardNoteEl = document.getElementById('payCardNote');
+  try {
+    const all = await SettingsAPI.getAll();
+    _bankSettings = all;
+    const rows = [
+      ['Bank',          all.bank_name],
+      ['Account title', all.bank_account_title],
+      ['Account no.',   all.bank_account_number],
+      ['IBAN',          all.bank_iban],
+      ['Branch code',   all.bank_branch_code]
+    ].filter(r => r[1] && r[1].length > 0);
+
+    if (rows.length === 0) {
+      bankEl.innerHTML = `<div class="bank-empty">Bank details not configured yet. Please choose Cash on Delivery or contact us on WhatsApp.</div>`;
+    } else {
+      bankEl.innerHTML = rows.map(([k, v]) => `
+        <div>
+          <dt>${escapeHTML(k)}</dt>
+          <dd>
+            <span class="bank-val">${escapeHTML(v)}</span>
+            <button type="button" class="bank-copy" onclick="copyBank('${escapeHTML(v)}')">Copy</button>
+          </dd>
+        </div>
+      `).join('');
+    }
+    if (all.payment_card_note) cardNoteEl.textContent = all.payment_card_note;
+  } catch (err) {
+    console.warn('[Pasto] Could not load bank details:', err);
+    bankEl.innerHTML = `<div class="bank-empty">Could not load bank details — please refresh.</div>`;
+  }
+}
+
+function copyBank(value) {
+  navigator.clipboard?.writeText(value).then(
+    () => showToast('Copied'),
+    () => showToast('Could not copy — long-press to copy')
+  );
+}
+
+function selectedPayMethod() {
+  const r = document.querySelector('input[name="payMethod"]:checked');
+  return r ? r.value : 'cod';
+}
+
+function onPayMethodChange() {
+  const method = selectedPayMethod();
+  document.getElementById('bankPanel').hidden = method !== 'bank_transfer';
+  document.getElementById('cardPanel').hidden = method !== 'card';
+  document.querySelectorAll('.pay-option').forEach(opt => {
+    const input = opt.querySelector('input[type="radio"]');
+    opt.classList.toggle('active', input && input.checked);
+  });
+}
+
+// Live preview of selected screenshot before submit
+function setupPayProofPreview() {
+  const input = document.getElementById('payProof');
+  const preview = document.getElementById('payProofPreview');
+  if (!input || !preview) return;
+  input.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) { preview.hidden = true; preview.innerHTML = ''; return; }
+    const url = URL.createObjectURL(file);
+    preview.hidden = false;
+    preview.innerHTML = `<img src="${url}" alt="payment screenshot preview">`;
+  });
 }
 
 function closeModal() {
@@ -836,12 +911,38 @@ async function submitOrder() {
   const submitBtn = document.querySelector('#checkoutModal .modal-submit');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
 
+  // Payment handling
+  const payMethod = selectedPayMethod();
+  let paymentProofUrl = null;
+
+  if (payMethod === 'bank_transfer') {
+    const fileInput = document.getElementById('payProof');
+    if (!fileInput.files || !fileInput.files[0]) {
+      showToast('Please upload your payment screenshot');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+      return;
+    }
+    try {
+      if (submitBtn) submitBtn.textContent = 'Uploading proof…';
+      paymentProofUrl = await OrdersAPI.uploadPaymentProof(fileInput.files[0]);
+    } catch (err) {
+      console.error('[Pasto] proof upload failed:', err);
+      showToast('Could not upload screenshot — try a smaller image');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+      return;
+    }
+  }
+
+  if (submitBtn) submitBtn.textContent = 'Saving order…';
+
   let placed = null;
   try {
     placed = await OrdersAPI.place({
       name, phone, address, notes, items, total,
       couponCode: coupon,
-      useCredit: _useFreeCredit
+      useCredit: _useFreeCredit,
+      paymentMethod: payMethod,
+      paymentProofUrl
     });
   } catch (err) {
     console.error('[Pasto] place_order failed:', err);
@@ -886,7 +987,12 @@ async function submitOrder() {
   if (coupon && couponDisc > 0) msg += `*Promo ${coupon}:* −${CONFIG.currency} ${couponDisc}\n`;
   if (discount > 0)  msg += `*Total payable:* ${CONFIG.currency} ${payable}\n`;
   else               msg += `*Total:* ${CONFIG.currency} ${total}\n`;
-  msg += `*Payment:* Cash on delivery`;
+
+  const payLabel = payMethod === 'bank_transfer' ? 'Bank transfer (proof uploaded — please verify)'
+                  : payMethod === 'card'         ? 'Card / online (please send me a payment link)'
+                  :                                'Cash on delivery';
+  msg += `*Payment:* ${payLabel}`;
+  if (paymentProofUrl) msg += `\n*Proof:* ${paymentProofUrl}`;
   if (notes) msg += `\n\n*Notes:* ${notes}`;
 
   const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
@@ -907,7 +1013,12 @@ async function submitOrder() {
   updateCartCount();
   updateAllMenuCardControls();
   closeModal();
-  showToast(`Order #${placed.short_code} placed! Tracking below.`);
+  const toastMsg = payMethod === 'bank_transfer'
+    ? `Order #${placed.short_code} placed — we're verifying your payment.`
+    : payMethod === 'card'
+      ? `Order #${placed.short_code} placed — check WhatsApp for payment link.`
+      : `Order #${placed.short_code} placed! Tracking below.`;
+  showToast(toastMsg);
 
   // Clear form fields and coupon state
   ['custName', 'custPhone', 'custAddress', 'custNotes', 'custCoupon'].forEach(id => {
@@ -917,6 +1028,12 @@ async function submitOrder() {
   document.getElementById('couponFeedback').textContent = '';
   document.getElementById('checkoutLoyalty').hidden = true;
   document.getElementById('checkoutTotal').innerHTML = '';
+  const proofInput = document.getElementById('payProof');
+  if (proofInput) proofInput.value = '';
+  const proofPrev = document.getElementById('payProofPreview');
+  if (proofPrev) { proofPrev.hidden = true; proofPrev.innerHTML = ''; }
+  const codRadio = document.querySelector('input[name="payMethod"][value="cod"]');
+  if (codRadio) { codRadio.checked = true; onPayMethodChange(); }
   _appliedCoupon = null;
   _useFreeCredit = false;
   _loyaltyForCheckout = null;
@@ -1022,6 +1139,14 @@ function renderTracker(row) {
     foot = `Thanks${row.customer_name ? ', ' + row.customer_name : ''}! Hope you loved it.`;
   } else {
     foot = `Last update ${mins === 0 ? 'just now' : mins + ' min ago'} · refreshes every 15s`;
+  }
+  // Surface payment status if relevant
+  if (row.payment_status === 'awaiting_verification') {
+    foot = `Verifying your payment screenshot — usually within 10 min`;
+  } else if (row.payment_status === 'verified' && row.status === 'received') {
+    foot = `Payment verified · order is queued for the kitchen`;
+  } else if (row.payment_method === 'card' && row.payment_status === 'pending') {
+    foot = `Awaiting payment link from us via WhatsApp`;
   }
   const stored = lsGet('pastoActiveOrder', {});
   const refCode = stored.referral_code;
@@ -1201,6 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resumeTrackerIfActive();
 
   document.getElementById('orderTrackerClose')?.addEventListener('click', dismissTracker);
+  setupPayProofPreview();
 
   // Rewards lookup form
   document.getElementById('rewardsForm')?.addEventListener('submit', async (e) => {

@@ -133,18 +133,42 @@ const ORDER_LABELS = {
 
 const OrdersAPI = {
   // ---------- Public: place a new order ----------
-  async place({ name, phone, address, notes, items, total, couponCode, useCredit }) {
+  async place({ name, phone, address, notes, items, total, couponCode, useCredit, paymentMethod, paymentProofUrl }) {
     const { data, error } = await sb.rpc('place_order', {
       p_name: name, p_phone: phone, p_address: address,
       p_notes: notes || null,
       p_items: items, p_total: total,
       p_coupon_code: couponCode || null,
-      p_use_credit: !!useCredit
+      p_use_credit: !!useCredit,
+      p_payment_method: paymentMethod || 'cod',
+      p_payment_proof_url: paymentProofUrl || null
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error('No order returned from server');
-    return row; // { id, short_code, referral_code, discount, free_used }
+    return row;
+  },
+
+  // ---------- Public: upload payment proof screenshot ----------
+  async uploadPaymentProof(file) {
+    if (!file) throw new Error('No file');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const rand = Math.random().toString(36).slice(2, 10);
+    const path = `${Date.now()}-${rand}.${ext}`;
+    const { error } = await sb.storage
+      .from('payment-proofs')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) throw error;
+    const { data } = sb.storage.from('payment-proofs').getPublicUrl(path);
+    return data.publicUrl;
+  },
+
+  // ---------- Admin: payment moderation ----------
+  async setPaymentStatus(id, payment_status, payment_reference) {
+    const patch = { payment_status };
+    if (payment_reference !== undefined) patch.payment_reference = payment_reference;
+    const { error } = await sb.from('orders').update(patch).eq('id', id);
+    if (error) throw error;
   },
 
   // ---------- Public: poll status by id ----------

@@ -162,6 +162,7 @@ function showDashboard(session) {
   loadCoupons();
   loadMenuItems();
   loadSiteImagePreview();
+  loadBankSettings();
   setupOrdersAutoRefresh();
 }
 
@@ -471,6 +472,7 @@ function renderOrderRow(o) {
         </div>
         <ul class="ord-items">${itemsHTML}</ul>
         ${o.notes ? `<div class="ord-notes"><strong>Notes:</strong> ${escapeHTML(o.notes)}</div>` : ''}
+        ${renderPaymentInfo(o)}
       </div>
 
       <div class="admin-row-foot">
@@ -861,6 +863,96 @@ async function clearHeroImage() {
     showToast('Hero image cleared');
     loadSiteImagePreview();
   } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+// ==================================================
+// PAYMENTS — display on orders + verify + bank settings
+// ==================================================
+const PAY_METHOD_LABELS = {
+  cod: 'Cash on delivery',
+  bank_transfer: 'Bank transfer',
+  card: 'Card / online'
+};
+const PAY_STATUS_LABELS = {
+  pending: 'Pending',
+  awaiting_verification: 'Awaiting verification',
+  verified: 'Verified',
+  failed: 'Failed'
+};
+
+function renderPaymentInfo(o) {
+  const method = o.payment_method || 'cod';
+  const status = o.payment_status || 'pending';
+  const methodLabel = PAY_METHOD_LABELS[method] || method;
+  const statusLabel = PAY_STATUS_LABELS[status] || status;
+  const proofHTML = o.payment_proof_url
+    ? `<a class="pay-proof-link" href="${escapeHTML(o.payment_proof_url)}" target="_blank" rel="noopener">View screenshot ↗</a>`
+    : '';
+  const actions = [];
+  if (status !== 'verified') {
+    actions.push(`<button class="admin-action approve" onclick="actPayStatus('${o.id}', 'verified')">Mark verified</button>`);
+  }
+  if (status !== 'failed' && status !== 'verified') {
+    actions.push(`<button class="admin-action reject" onclick="actPayStatus('${o.id}', 'failed')">Mark failed</button>`);
+  }
+  if (status === 'verified') {
+    actions.push(`<button class="admin-action secondary" onclick="actPayStatus('${o.id}', 'pending')">Reset</button>`);
+  }
+  return `
+    <div class="ord-payment pay-status-${status}">
+      <div class="ord-payment-row">
+        <span class="ord-payment-method">💳 ${escapeHTML(methodLabel)}</span>
+        <span class="badge pay-badge-${status}">${escapeHTML(statusLabel)}</span>
+        ${proofHTML}
+      </div>
+      ${actions.length ? `<div class="ord-payment-actions">${actions.join('')}</div>` : ''}
+    </div>
+  `;
+}
+
+async function actPayStatus(id, status) {
+  try {
+    await OrdersAPI.setPaymentStatus(id, status);
+    showToast('Payment status: ' + (PAY_STATUS_LABELS[status] || status));
+    loadOrders();
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+async function loadBankSettings() {
+  try {
+    const s = await SettingsAPI.getAll();
+    document.getElementById('bsBank').value     = s.bank_name || '';
+    document.getElementById('bsTitle').value    = s.bank_account_title || '';
+    document.getElementById('bsNumber').value   = s.bank_account_number || '';
+    document.getElementById('bsIban').value     = s.bank_iban || '';
+    document.getElementById('bsBranch').value   = s.bank_branch_code || '';
+    document.getElementById('bsCardNote').value = s.payment_card_note || '';
+  } catch (err) {
+    console.warn('load bank settings failed', err);
+  }
+}
+
+async function saveBankSettings(e) {
+  e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  try {
+    await Promise.all([
+      SettingsAPI.set('bank_name',          document.getElementById('bsBank').value.trim()),
+      SettingsAPI.set('bank_account_title', document.getElementById('bsTitle').value.trim()),
+      SettingsAPI.set('bank_account_number',document.getElementById('bsNumber').value.trim()),
+      SettingsAPI.set('bank_iban',          document.getElementById('bsIban').value.trim()),
+      SettingsAPI.set('bank_branch_code',   document.getElementById('bsBranch').value.trim()),
+      SettingsAPI.set('payment_card_note',  document.getElementById('bsCardNote').value.trim())
+    ]);
+    showToast('Bank details saved');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save bank details';
+  }
 }
 
 

@@ -618,6 +618,229 @@ create policy "auth_write_site_images"
 
 
 -- ============================================================
+-- PAYMENTS — add method/status/proof columns to orders
+-- ============================================================
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='orders' and column_name='payment_method') then
+    alter table public.orders add column payment_method text not null default 'cod';
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='orders' and column_name='payment_status') then
+    alter table public.orders add column payment_status text not null default 'pending';
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='orders' and column_name='payment_proof_url') then
+    alter table public.orders add column payment_proof_url text;
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema='public' and table_name='orders' and column_name='payment_reference') then
+    alter table public.orders add column payment_reference text;
+  end if;
+end $$;
+
+-- Constraints (drop + add so we can change valid values without errors on re-run)
+alter table public.orders
+  drop constraint if exists orders_payment_method_check,
+  drop constraint if exists orders_payment_status_check;
+
+alter table public.orders
+  add constraint orders_payment_method_check
+    check (payment_method in ('cod','bank_transfer','card')),
+  add constraint orders_payment_status_check
+    check (payment_status in ('pending','awaiting_verification','verified','failed'));
+
+-- Storage bucket for payment proof uploads
+-- (public bucket so admin can view; paths include UUID so URLs are unguessable)
+insert into storage.buckets (id, name, public)
+  values ('payment-proofs', 'payment-proofs', true) on conflict (id) do nothing;
+
+drop policy if exists "anon_write_payment_proofs" on storage.objects;
+drop policy if exists "public_read_payment_proofs" on storage.objects;
+drop policy if exists "auth_all_payment_proofs"    on storage.objects;
+
+create policy "anon_write_payment_proofs"
+  on storage.objects for insert
+  to anon, authenticated
+  with check (bucket_id = 'payment-proofs');
+
+create policy "public_read_payment_proofs"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'payment-proofs');
+
+create policy "auth_all_payment_proofs"
+  on storage.objects for all
+  to authenticated
+  using (bucket_id = 'payment-proofs')
+  with check (bucket_id = 'payment-proofs');
+
+
+-- Update place_order to accept payment_method + proof URL
+drop function if exists public.place_order(text, text, text, text, jsonb, int, text, boolean);
+drop function if exists public.place_order(text, text, text, text, jsonb, int, text, boolean, text, text);
+
+create or replace function public.place_order(
+  p_name              text,
+  p_phone             text,
+  p_address           text,
+  p_notes             text,
+  p_items             jsonb,
+  p_total             int,
+  p_coupon_code       text default null,
+  p_use_credit        boolean default false,
+  p_payment_method    text default 'cod',
+  p_payment_proof_url text default null
+)
+returns table (
+  id uuid, short_code text, referral_code text,
+  discount int, free_used boolean, bulk_free_amount int
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_id          uuid;
+  new_code        text;
+  v_discount      int := 0;
+  v_coupon        text := null;
+  v_coupon_disc   int := 0;
+  v_loyalty       public.loyalty%rowtype;
+  v_total_qty     int := 0;
+  v_cheapest      int := 0;
+  v_bulk_free     int := 0;
+  v_free_used     boolean := false;
+  v_referral_code text;
+  v_pay_method    text;
+  v_pay_status    text;
+begin
+  if char_length(coalesce(p_name, '')) < 2
+     or char_length(coalesce(p_phone, '')) < 6
+     or char_length(coalesce(p_address, '')) < 5
+     or jsonb_array_length(p_items) = 0
+     or p_total <= 0 then
+    raise exception 'Invalid order payload';
+  end if;
+
+  v_pay_method := coalesce(p_payment_method, 'cod');
+  if v_pay_method not in ('cod', 'bank_transfer', 'card') then
+    raise exception 'Invalid payment method';
+  end if;
+
+  -- Initial payment status by method
+  v_pay_status := case v_pay_method
+    when 'bank_transfer' then 'awaiting_verification'
+    when 'card' then 'pending'           -- admin sends payment link
+    else 'pending'                       -- COD: pay on delivery
+  end;
+
+  -- Buy 5 get 1 free
+  select coalesce(sum((it->>'qty')::int), 0) into v_total_qty
+    from jsonb_array_elements(p_items) it;
+  if v_total_qty >= 5 then
+    select min((it->>'price')::int) into v_cheapest
+      from jsonb_array_elements(p_items) it
+      where (it->>'price')::int > 0;
+    v_bulk_free := coalesce(v_cheapest, 0);
+    v_discount := v_discount + v_bulk_free;
+    v_free_used := v_bulk_free > 0;
+  end if;
+
+  -- Coupon
+  if p_coupon_code is not null and length(trim(p_coupon_code)) > 0 then
+    select computed_discount, code into v_coupon_disc, v_coupon
+      from public.validate_coupon(p_coupon_code, p_total, p_phone)
+      where ok = true;
+    if v_coupon is null then
+      raise exception 'Invalid or expired coupon';
+    end if;
+    v_discount := v_discount + v_coupon_disc;
+  end if;
+  v_discount := least(v_discount, p_total);
+
+  -- Upsert loyalty
+  insert into public.loyalty (phone, name)
+    values (p_phone, p_name)
+    on conflict (phone) do update set name = excluded.name, updated_at = now()
+    returning * into v_loyalty;
+
+  -- Insert order
+  insert into public.orders (
+    customer_name, customer_phone, customer_address, notes, items, total,
+    coupon_code, discount, used_free_credit,
+    payment_method, payment_status, payment_proof_url
+  ) values (
+    p_name, p_phone, p_address, p_notes, p_items, p_total,
+    v_coupon, v_discount, v_free_used,
+    v_pay_method, v_pay_status, p_payment_proof_url
+  )
+  returning orders.id, orders.short_code into new_id, new_code;
+
+  if v_coupon is not null then
+    update public.coupons set used_count = used_count + 1 where code = v_coupon;
+  end if;
+
+  update public.loyalty
+    set order_count = order_count + 1, updated_at = now()
+    where phone = p_phone
+    returning * into v_loyalty;
+
+  v_referral_code := v_loyalty.referral_code;
+
+  return query select new_id, new_code, v_referral_code, v_discount, v_free_used, v_bulk_free;
+end;
+$$;
+
+grant execute on function public.place_order(
+  text, text, text, text, jsonb, int, text, boolean, text, text
+) to anon, authenticated;
+
+
+-- Update track_order to also return payment info
+drop function if exists public.track_order(uuid);
+
+create or replace function public.track_order(order_id uuid)
+returns table (
+  status text,
+  customer_name text,
+  short_code text,
+  payment_status text,
+  payment_method text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    o.status,
+    split_part(o.customer_name, ' ', 1),
+    o.short_code,
+    o.payment_status,
+    o.payment_method,
+    o.created_at,
+    o.updated_at
+  from public.orders o
+  where o.id = order_id;
+$$;
+
+grant execute on function public.track_order(uuid) to anon, authenticated;
+
+
+-- Seed default site settings for bank account if missing
+insert into public.site_settings (key, value) values
+  ('bank_name',         ''),
+  ('bank_account_title','Pasto by Aiman'),
+  ('bank_account_number',''),
+  ('bank_iban',         ''),
+  ('bank_branch_code',  ''),
+  ('payment_card_note', 'After you submit, we will WhatsApp you a secure payment link. Pay there and your order goes into the kitchen.')
+on conflict (key) do nothing;
+
+
+-- ============================================================
 -- Done. Next steps:
 --   1. Authentication → Users → "Add user" → create your admin
 --      account (email + password). This is who logs into admin.html.

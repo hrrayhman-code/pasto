@@ -281,6 +281,7 @@
           </div>
         </div>
 
+        <h4 class="site-subhead">Hero image</h4>
         <div class="site-image-panel" id="siteImagePanel">
           <div class="site-image-current">
             <div class="site-image-current-label">Current hero image</div>
@@ -300,6 +301,40 @@
             </div>
           </form>
         </div>
+
+        <h4 class="site-subhead" style="margin-top: 36px;">Bank account (for bank transfer payments)</h4>
+        <p class="coupons-sub" style="margin-bottom: 16px;">Customers see these details when they choose Bank Transfer at checkout. Leave any field blank to hide it.</p>
+        <form class="coupon-form" id="bankForm" hidden=false onsubmit="saveBankSettings(event)">
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="bsBank">Bank name</label>
+              <input id="bsBank" type="text" placeholder="e.g. Meezan Bank">
+            </div>
+            <div class="field">
+              <label for="bsTitle">Account title</label>
+              <input id="bsTitle" type="text" placeholder="Pasto by Aiman">
+            </div>
+            <div class="field">
+              <label for="bsNumber">Account number</label>
+              <input id="bsNumber" type="text" placeholder="0123-4567-8901-2345">
+            </div>
+            <div class="field">
+              <label for="bsIban">IBAN</label>
+              <input id="bsIban" type="text" placeholder="PK00 ABCD 0000 0000 0000 0000">
+            </div>
+            <div class="field">
+              <label for="bsBranch">Branch code</label>
+              <input id="bsBranch" type="text" placeholder="0123">
+            </div>
+          </div>
+          <div class="field">
+            <label for="bsCardNote">Note shown for Card / online payments</label>
+            <textarea id="bsCardNote" rows="2" placeholder="After you submit, we'll WhatsApp you a payment link…"></textarea>
+          </div>
+          <div class="modal-foot" style="justify-content: flex-start;">
+            <button type="submit" class="modal-submit">Save bank details</button>
+          </div>
+        </form>
       </div>
     </main>
   </div>
