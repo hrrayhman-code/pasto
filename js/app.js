@@ -729,6 +729,14 @@ function selectedPayMethod() {
   return r ? r.value : 'cod';
 }
 
+// Customers paying via bank transfer get an automatic 5% off the subtotal.
+// Keep this constant in sync with the same value in place_order RPC.
+const BANK_TRANSFER_DISCOUNT_PCT = 5;
+function bankTransferDiscount() {
+  if (selectedPayMethod() !== 'bank_transfer') return 0;
+  return Math.round(cartTotal() * BANK_TRANSFER_DISCOUNT_PCT / 100);
+}
+
 function onPayMethodChange() {
   const method = selectedPayMethod();
   document.getElementById('bankPanel').hidden = method !== 'bank_transfer';
@@ -737,6 +745,8 @@ function onPayMethodChange() {
     const input = opt.querySelector('input[type="radio"]');
     opt.classList.toggle('active', input && input.checked);
   });
+  // Recalculate total — the bank-transfer discount is method-dependent.
+  renderCheckoutTotal();
 }
 
 // Live preview of selected screenshot before submit
@@ -875,7 +885,8 @@ function renderCheckoutTotal() {
   const total = cartTotal();
   const bulk = bulkFreeDiscount();                              // auto buy-5-get-1-free
   const couponDisc = _appliedCoupon?.computed_discount || 0;
-  const totalDisc = Math.min(total, bulk.amount + couponDisc);
+  const bankDisc = bankTransferDiscount();                      // 5% if paying via bank
+  const totalDisc = Math.min(total, bulk.amount + couponDisc + bankDisc);
   const payable = Math.max(0, total - totalDisc);
 
   const lines = [`<div class="ct-line"><span>Subtotal</span><span>${CONFIG.currency} ${total}</span></div>`];
@@ -884,6 +895,9 @@ function renderCheckoutTotal() {
   }
   if (couponDisc > 0) {
     lines.push(`<div class="ct-line ct-disc"><span>Promo ${escapeHTML(_appliedCoupon.code)}</span><span>− ${CONFIG.currency} ${couponDisc}</span></div>`);
+  }
+  if (bankDisc > 0) {
+    lines.push(`<div class="ct-line ct-disc"><span>Bank transfer (${BANK_TRANSFER_DISCOUNT_PCT}% off)</span><span>− ${CONFIG.currency} ${bankDisc}</span></div>`);
   }
   lines.push(`<div class="ct-line ct-total"><span>You pay</span><span>${CONFIG.currency} ${payable}</span></div>`);
   wrap.innerHTML = lines.join('');
@@ -981,10 +995,14 @@ async function submitOrder() {
     msg += `• ${it.qty}× ${it.name} — ${CONFIG.currency} ${it.price * it.qty}\n`;
   });
   const bulkFree = placed.bulk_free_amount || 0;
-  const couponDisc = Math.max(0, discount - bulkFree);
+  const bankDiscShown = (payMethod === 'bank_transfer')
+    ? Math.round(total * BANK_TRANSFER_DISCOUNT_PCT / 100)
+    : 0;
+  const couponDisc = Math.max(0, discount - bulkFree - bankDiscShown);
   msg += `\n*Subtotal:* ${CONFIG.currency} ${total}\n`;
   if (bulkFree > 0)  msg += `*Buy 5 get 1 free:* −${CONFIG.currency} ${bulkFree}\n`;
   if (coupon && couponDisc > 0) msg += `*Promo ${coupon}:* −${CONFIG.currency} ${couponDisc}\n`;
+  if (bankDiscShown > 0) msg += `*Bank transfer (${BANK_TRANSFER_DISCOUNT_PCT}% off):* −${CONFIG.currency} ${bankDiscShown}\n`;
   if (discount > 0)  msg += `*Total payable:* ${CONFIG.currency} ${payable}\n`;
   else               msg += `*Total:* ${CONFIG.currency} ${total}\n`;
 

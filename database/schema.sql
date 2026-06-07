@@ -757,6 +757,12 @@ begin
     end if;
     v_discount := v_discount + v_coupon_disc;
   end if;
+
+  -- Bank transfer: 5% off the subtotal, applied automatically
+  if v_pay_method = 'bank_transfer' then
+    v_discount := v_discount + round(p_total * 5 / 100.0);
+  end if;
+
   v_discount := least(v_discount, p_total);
 
   -- Upsert loyalty
