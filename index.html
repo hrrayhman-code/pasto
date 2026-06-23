@@ -143,6 +143,24 @@
 <body>
 
   <!-- ============================================== -->
+  <!-- PRE-LAUNCH COUNTDOWN BANNER                    -->
+  <!-- Sticky banner at the top, hides itself after   -->
+  <!-- the launch date in config.js                   -->
+  <!-- ============================================== -->
+  <div class="launch-banner" id="launchBanner" hidden>
+    <div class="launch-banner-inner">
+      <span class="launch-banner-eyebrow">🍝 Opening soon · Karachi</span>
+      <div class="launch-countdown" id="launchCountdown">
+        <div class="lc-cell"><span class="lc-num" id="lcDays">00</span><span class="lc-label">days</span></div>
+        <div class="lc-cell"><span class="lc-num" id="lcHours">00</span><span class="lc-label">hours</span></div>
+        <div class="lc-cell"><span class="lc-num" id="lcMins">00</span><span class="lc-label">min</span></div>
+        <div class="lc-cell"><span class="lc-num" id="lcSecs">00</span><span class="lc-label">sec</span></div>
+      </div>
+      <button class="launch-banner-cta" onclick="openLaunchModal()">Get notified</button>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
   <!-- NAVIGATION                                     -->
   <!-- ============================================== -->
   <nav class="nav">
@@ -180,6 +198,15 @@
         <div class="hero-eyebrow">Karachi · est. 2026</div>
         <h1 class="hero-title">Pasta the way it <em>should</em> be made.</h1>
         <p class="hero-sub">Freshly cooked, slow simmered, made to order. Three signature pastas, two sides, real ingredients only. Delivered hot across Karachi.</p>
+        <!-- Hero launch badge — auto-hides after launch date -->
+        <div class="hero-launch-badge" id="heroLaunchBadge" hidden>
+          <span class="hero-launch-icon">🍝</span>
+          <span class="hero-launch-text">
+            <strong>Opening 1st July 2026</strong>
+            <span class="hero-launch-sub" id="heroLaunchSub">Get notified when we go live</span>
+          </span>
+          <button class="hero-launch-btn" onclick="openLaunchModal()">Notify me</button>
+        </div>
         <div class="hero-cta-row">
           <a href="#menu" class="btn btn-primary">
             See the menu
@@ -517,7 +544,7 @@
   <!-- ============================================== -->
   <!-- CART DRAWER                                    -->
   <!-- ============================================== -->
-  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal();"></div>
+  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal();"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-header">
       <div class="cart-title">Your order</div>
@@ -674,6 +701,39 @@
     <ol class="order-tracker-steps" id="trackerSteps"></ol>
     <div class="order-tracker-foot" id="trackerFoot"></div>
   </aside>
+
+  <!-- ============================================== -->
+  <!-- PRE-LAUNCH MODAL                               -->
+  <!-- Appears when users try to add to cart or       -->
+  <!-- check out before the launch date.              -->
+  <!-- ============================================== -->
+  <div class="modal launch-modal" id="launchModal">
+    <div class="launch-modal-art">🍝</div>
+    <h2 class="modal-title">We open on <em>1st July 2026</em></h2>
+    <p class="modal-sub">Pasto is firing up the kitchen. We're not taking orders yet — but you can be the first to know the moment we go live.</p>
+
+    <!-- Mini countdown inside the modal -->
+    <div class="launch-modal-countdown" id="launchModalCountdown">
+      <div class="lc-cell"><span class="lc-num" id="lcmDays">00</span><span class="lc-label">days</span></div>
+      <div class="lc-cell"><span class="lc-num" id="lcmHours">00</span><span class="lc-label">hours</span></div>
+      <div class="lc-cell"><span class="lc-num" id="lcmMins">00</span><span class="lc-label">min</span></div>
+      <div class="lc-cell"><span class="lc-num" id="lcmSecs">00</span><span class="lc-label">sec</span></div>
+    </div>
+
+    <div class="field">
+      <label for="notifyName">Your name</label>
+      <input type="text" id="notifyName" placeholder="What should we call you?">
+    </div>
+    <div class="field">
+      <label for="notifyPhone">WhatsApp number</label>
+      <input type="tel" id="notifyPhone" placeholder="03XX XXXXXXX">
+    </div>
+    <p class="launch-modal-note">We'll WhatsApp you the moment we open and send your first-week discount code 🎁</p>
+    <div class="modal-foot">
+      <button class="modal-cancel" onclick="closeLaunchModal()">Browse menu</button>
+      <button class="modal-submit" onclick="submitLaunchNotify()">Notify me</button>
+    </div>
+  </div>
 
   <!-- Toast notification -->
   <div class="toast" id="toast"></div>

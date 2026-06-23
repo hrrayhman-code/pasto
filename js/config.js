@@ -57,6 +57,16 @@ const CONFIG = {
   // ============================================
   deliveryHours: 'Daily, 06:00 pm to 11:00 pm',
   deliveryAreas: 'Most areas of Karachi',
+
+  // ============================================
+  // LAUNCH DATE
+  // ============================================
+  // Set this to the moment you want orders to go live.
+  // The site shows a countdown + blocks orders until this date.
+  // Format: ISO string. Use Karachi time (UTC+5).
+  //   Example: '2026-07-01T00:00:00+05:00' = 1 July 2026, midnight Karachi
+  // To go live immediately, set launchDate to null or a past date.
+  launchDate: '2026-07-01T00:00:00+05:00',
 };
 
 

@@ -502,7 +502,133 @@ function renderContactLinks() {
 // ==================================================
 // CART OPERATIONS
 // ==================================================
+// ==================================================
+// PRE-LAUNCH MODE
+// ==================================================
+// Reads CONFIG.launchDate. While the current time is BEFORE the
+// launch date, the site shows a countdown banner + hero badge and
+// blocks all ordering actions with a friendly "we open on X" modal
+// that collects WhatsApp signups for launch-day notification.
+// ==================================================
+
+function getLaunchDate() {
+  if (!CONFIG.launchDate) return null;
+  const d = new Date(CONFIG.launchDate);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isPreLaunch() {
+  const d = getLaunchDate();
+  if (!d) return false;
+  return Date.now() < d.getTime();
+}
+
+let _countdownTimer = null;
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function updateCountdownDisplay() {
+  const launch = getLaunchDate();
+  if (!launch) return;
+  const diff = launch.getTime() - Date.now();
+  if (diff <= 0) {
+    // We just hit launch! Reload to refresh the whole page in "live" mode.
+    if (_countdownTimer) clearInterval(_countdownTimer);
+    location.reload();
+    return;
+  }
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const mins = Math.floor((diff / (1000 * 60)) % 60);
+  const secs = Math.floor((diff / 1000) % 60);
+
+  const targets = [
+    ['lcDays', days], ['lcHours', hours], ['lcMins', mins], ['lcSecs', secs],
+    ['lcmDays', days], ['lcmHours', hours], ['lcmMins', mins], ['lcmSecs', secs]
+  ];
+  targets.forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = pad2(val);
+  });
+
+  // Also update the hero sub-label with a friendly relative time
+  const sub = document.getElementById('heroLaunchSub');
+  if (sub) {
+    if (days > 1) sub.textContent = `${days} days to go · get notified`;
+    else if (days === 1) sub.textContent = `1 day to go · get notified`;
+    else if (hours > 0) sub.textContent = `Less than ${hours} hours — get notified`;
+    else sub.textContent = `Opening any minute now!`;
+  }
+}
+
+function initPreLaunchMode() {
+  if (!isPreLaunch()) {
+    // We're live. Make sure the banner / badge are hidden (they already are).
+    return;
+  }
+  // Show banner + hero badge
+  const banner = document.getElementById('launchBanner');
+  const badge  = document.getElementById('heroLaunchBadge');
+  if (banner) banner.hidden = false;
+  if (badge)  badge.hidden  = false;
+  // Add CSS hook on body for global pre-launch styling tweaks
+  document.body.classList.add('pre-launch');
+
+  // Start the countdown loop
+  updateCountdownDisplay();
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  _countdownTimer = setInterval(updateCountdownDisplay, 1000);
+}
+
+function openLaunchModal() {
+  // Pre-fill name/phone from a previous sign-up if they did one earlier
+  const stored = lsGet('pastoLaunchSignup', null);
+  if (stored) {
+    document.getElementById('notifyName').value  = stored.name  || '';
+    document.getElementById('notifyPhone').value = stored.phone || '';
+  }
+  document.getElementById('launchModal').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  updateCountdownDisplay();
+}
+
+function closeLaunchModal() {
+  document.getElementById('launchModal').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function submitLaunchNotify() {
+  const name  = document.getElementById('notifyName').value.trim();
+  const phone = document.getElementById('notifyPhone').value.trim();
+  if (!phone || phone.length < 6) {
+    showToast('Please enter a valid WhatsApp number');
+    return;
+  }
+
+  // Remember locally so we don't nag them again
+  lsSet('pastoLaunchSignup', { name, phone, ts: Date.now() });
+
+  // Send a WhatsApp message to the owner with the signup
+  const msg = `*Pasto launch notify signup*\n\n` +
+    `*Name:* ${name || '(not provided)'}\n` +
+    `*Phone:* ${phone}\n\n` +
+    `Please add me to the launch-day notify list.`;
+  const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+
+  closeLaunchModal();
+  showToast(`Thanks${name ? ', ' + name : ''}! You'll be the first to know.`);
+}
+
+
 function addToCart(id) {
+  // Block ordering during pre-launch — show the launch modal instead.
+  if (isPreLaunch()) {
+    openLaunchModal();
+    return;
+  }
   const wasInCart = (cart[id] || 0) > 0;
   cart[id] = (cart[id] || 0) + 1;
   saveCart();
@@ -655,6 +781,12 @@ function renderCart() {
 // UI: DRAWER, MODAL, TOAST
 // ==================================================
 function openCart() {
+  // Don't even open the cart drawer during pre-launch — go straight
+  // to the launch modal so users always see the "we open on X" message.
+  if (isPreLaunch()) {
+    openLaunchModal();
+    return;
+  }
   document.getElementById('cartDrawer').classList.add('open');
   document.getElementById('overlay').classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -667,6 +799,11 @@ function closeCart() {
 }
 
 function openCheckoutModal() {
+  if (isPreLaunch()) {
+    closeCart();
+    openLaunchModal();
+    return;
+  }
   if (cartItemCount() === 0) return;
   closeCart();
   setTimeout(() => {
@@ -1331,6 +1468,7 @@ async function loadSiteSettings() {
 // INITIALIZATION
 // ==================================================
 document.addEventListener('DOMContentLoaded', () => {
+  initPreLaunchMode();           // countdown + intercepts (must run early)
   renderMenu();                  // immediate paint with fallback
   loadMenuFromDB();              // then replace with DB data
   loadSiteSettings();            // apply hero image if set
@@ -1410,6 +1548,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeCart();
       closeModal();
       closeReviewModal();
+      closeLaunchModal();
     }
   });
 

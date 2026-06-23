@@ -2105,6 +2105,200 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================
+   PRE-LAUNCH COUNTDOWN BANNER + MODAL
+   ============================================ */
+
+/* Sticky banner across the very top of the page */
+.launch-banner {
+  position: sticky;
+  top: 0;
+  z-index: 95;
+  background: linear-gradient(90deg, var(--charcoal), #2a2522, var(--charcoal));
+  color: var(--cream);
+  border-bottom: 1.5px solid var(--red);
+  box-shadow: 0 4px 14px -8px rgba(0,0,0,0.4);
+  animation: slideDownBanner 0.5s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes slideDownBanner {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+.launch-banner-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.launch-banner-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+}
+.launch-banner-cta {
+  background: var(--red);
+  color: var(--cream);
+  border: none;
+  padding: 7px 16px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.launch-banner-cta:hover {
+  background: var(--cream);
+  color: var(--charcoal);
+  transform: scale(1.04);
+}
+
+/* Reusable countdown grid (used in banner + hero badge + modal) */
+.launch-countdown,
+.launch-modal-countdown {
+  display: inline-flex;
+  gap: 10px;
+}
+.launch-modal-countdown {
+  justify-content: center;
+  margin: 20px 0 24px;
+}
+.lc-cell {
+  background: rgba(255, 248, 240, 0.1);
+  border: 1px solid rgba(255, 248, 240, 0.2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 52px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.lc-num {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--cream);
+  font-variant-numeric: tabular-nums;
+}
+.lc-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 248, 240, 0.7);
+  margin-top: 2px;
+}
+
+/* Modal version is on cream background, flip colors */
+.launch-modal-countdown .lc-cell {
+  background: var(--cream-dark);
+  border: 1.5px solid var(--charcoal);
+}
+.launch-modal-countdown .lc-num   { color: var(--charcoal); font-size: 26px; }
+.launch-modal-countdown .lc-label { color: var(--muted); }
+
+/* Hero launch badge — sits between sub and CTA in the hero */
+.hero-launch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--charcoal);
+  color: var(--cream);
+  border-radius: 14px;
+  padding: 12px 18px;
+  margin: 20px 0;
+  max-width: 460px;
+  border: 1.5px solid var(--red);
+  position: relative;
+  overflow: hidden;
+}
+.hero-launch-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(230,57,70,0.15) 50%, transparent 70%);
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.hero-launch-icon { font-size: 28px; flex-shrink: 0; z-index: 1; }
+.hero-launch-text {
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+.hero-launch-text strong {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.hero-launch-sub {
+  font-size: 12px;
+  color: rgba(255, 248, 240, 0.7);
+  margin-top: 2px;
+}
+.hero-launch-btn {
+  background: var(--red);
+  color: var(--cream);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 1;
+  transition: background 0.2s, transform 0.2s;
+}
+.hero-launch-btn:hover {
+  background: var(--cream);
+  color: var(--charcoal);
+  transform: scale(1.05);
+}
+
+/* Launch modal extras */
+.launch-modal-art {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+}
+.launch-modal-note {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin: 8px 0 4px;
+  font-style: italic;
+}
+
+/* Optional: subtle pre-launch styling on body */
+body.pre-launch .cart-count,
+body.pre-launch #navCart {
+  opacity: 0.7;
+}
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  .launch-banner-inner { padding: 8px 14px; gap: 10px; }
+  .launch-banner-eyebrow { font-size: 11px; flex-basis: 100%; text-align: center; }
+  .lc-cell { min-width: 44px; padding: 4px 8px; }
+  .lc-num  { font-size: 16px; }
+  .hero-launch-badge { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  .hero-launch-btn { width: 100%; margin-top: 4px; }
+}
+
+/* ============================================
    PAYMENT METHOD PICKER (in checkout modal)
    ============================================ */
 .pay-picker {
