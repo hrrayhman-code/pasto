@@ -2288,6 +2288,11 @@ body.pre-launch #navCart {
   opacity: 0.7;
 }
 
+/* Admin — pending launch signup gets a yellow accent */
+.admin-row.pending-signup {
+  border-left: 4px solid #d97706;
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
   .launch-banner-inner { padding: 8px 14px; gap: 10px; }

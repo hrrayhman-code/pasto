@@ -163,6 +163,7 @@ function showDashboard(session) {
   loadMenuItems();
   loadSiteImagePreview();
   loadBankSettings();
+  loadLaunchSignups();
   setupOrdersAutoRefresh();
 }
 
@@ -955,6 +956,158 @@ async function saveBankSettings(e) {
   }
 }
 
+
+// ==================================================
+// LAUNCH SIGNUP LIST
+// ==================================================
+let _launchSignupsCache = [];
+
+async function loadLaunchSignups() {
+  const list = document.getElementById('adminLaunchList');
+  if (!list) return;
+  try {
+    _launchSignupsCache = await LaunchSignupsAPI.listAll();
+    renderLaunchStats();
+    renderLaunchList();
+  } catch (err) {
+    list.innerHTML = `<div class="admin-empty error">Failed to load: ${escapeHTML(err.message)}</div>`;
+  }
+}
+
+function renderLaunchStats() {
+  const all = _launchSignupsCache;
+  const total = all.length;
+  const notified = all.filter(s => s.notified).length;
+  const pending = total - notified;
+  const today = all.filter(s => {
+    const d = new Date(s.created_at);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear()
+        && d.getMonth() === now.getMonth()
+        && d.getDate() === now.getDate();
+  }).length;
+  document.getElementById('lsStatTotal').textContent    = total;
+  document.getElementById('lsStatNotified').textContent = notified;
+  document.getElementById('lsStatPending').textContent  = pending;
+  document.getElementById('lsStatToday').textContent    = today;
+}
+
+function renderLaunchList() {
+  const list = document.getElementById('adminLaunchList');
+  const q = (document.getElementById('adminLaunchSearch')?.value || '').toLowerCase();
+  let items = _launchSignupsCache;
+  if (q) items = items.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.phone || '').toLowerCase().includes(q)
+  );
+  if (items.length === 0) {
+    list.innerHTML = `<div class="admin-empty">No signups yet — share the homepage countdown to drive sign-ups.</div>`;
+    return;
+  }
+  list.innerHTML = items.map(s => `
+    <article class="admin-row ${s.notified ? '' : 'pending-signup'}">
+      <div class="admin-row-head">
+        <div class="admin-row-meta">
+          <span class="admin-row-name">${escapeHTML(s.name || '(no name)')}</span>
+          <span class="admin-row-sub">· ${escapeHTML(s.phone)}</span>
+          <span class="admin-row-sub">· ${fmtDate(s.created_at)}</span>
+        </div>
+        <div class="admin-row-badges">
+          <span class="badge ${s.notified ? 'pay-badge-verified' : 'pay-badge-awaiting_verification'}">
+            ${s.notified ? '✓ Notified' : '⏳ Pending'}
+          </span>
+        </div>
+      </div>
+      <div class="admin-row-actions">
+        <button class="admin-action approve" onclick="whatsappOneSignup('${escapeHTML(s.phone)}', '${escapeHTML((s.name||'').replace(/'/g,"\\'"))}', '${s.id}')">
+          📱 WhatsApp & mark notified
+        </button>
+        ${s.notified ? `
+          <button class="admin-action secondary" onclick="toggleSignupNotified('${s.id}', false)">Mark pending</button>
+        ` : ''}
+        <button class="admin-action danger" onclick="deleteSignup('${s.id}')">Delete</button>
+      </div>
+    </article>
+  `).join('');
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'adminLaunchSearch') renderLaunchList();
+});
+
+function whatsappOneSignup(phone, name, id) {
+  const msg = `Hi${name ? ' ' + name : ''}! 🍝\n\n` +
+    `We're officially live — Pasto by Aiman is now taking orders!\n\n` +
+    `Hand-rolled pasta, slow-simmered sauces, real ingredients only. ` +
+    `Cooked fresh and delivered hot across Karachi.\n\n` +
+    `As thanks for signing up early, here's *15% off your first order* ` +
+    `with code *EARLYPASTO15*.\n\n` +
+    `Order now: https://www.pastobyaiman.com\n\n` +
+    `— Pasto by Aiman`;
+  // Normalize phone (strip non-digits) and force PK country code if missing
+  let normalized = phone.replace(/\D/g, '');
+  if (normalized.startsWith('0')) normalized = '92' + normalized.substring(1);
+  else if (!normalized.startsWith('92')) normalized = '92' + normalized;
+  const url = `https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  // Mark as notified in DB
+  toggleSignupNotified(id, true);
+}
+
+async function toggleSignupNotified(id, notified) {
+  try {
+    await LaunchSignupsAPI.markNotified(id, notified);
+    loadLaunchSignups();
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+async function deleteSignup(id) {
+  if (!confirm('Delete this signup permanently?')) return;
+  try {
+    await LaunchSignupsAPI.remove(id);
+    loadLaunchSignups();
+  } catch (err) { showToast('Failed: ' + err.message); }
+}
+
+function whatsappAllSignups() {
+  const pending = _launchSignupsCache.filter(s => !s.notified);
+  if (pending.length === 0) {
+    showToast('No pending signups to notify');
+    return;
+  }
+  if (!confirm(
+    `You're about to open WhatsApp ${pending.length} times — one for each pending signup.\n\n` +
+    `Send each message, then come back and mark them notified.\n\nContinue?`
+  )) return;
+  // Open WhatsApp tabs with small delays so browser doesn't block
+  pending.forEach((s, i) => {
+    setTimeout(() => whatsappOneSignup(s.phone, s.name || '', s.id), i * 500);
+  });
+}
+
+function exportSignupsCSV() {
+  const rows = [['Name', 'Phone', 'Signed up at', 'Notified', 'Notified at']];
+  _launchSignupsCache.forEach(s => {
+    rows.push([
+      s.name || '',
+      s.phone || '',
+      s.created_at || '',
+      s.notified ? 'Yes' : 'No',
+      s.notified_at || ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pasto-launch-signups-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV downloaded');
+}
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootstrap);

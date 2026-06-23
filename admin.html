@@ -59,12 +59,13 @@
     </header>
 
     <main class="admin-main">
-      <!-- Top-level tabs: Orders / Menu / Reviews / Coupons / Site -->
+      <!-- Top-level tabs -->
       <div class="admin-section-tabs" role="tablist">
         <button class="admin-section-tab active" data-section="orders"  role="tab">Orders</button>
         <button class="admin-section-tab"        data-section="menu"    role="tab">Menu</button>
         <button class="admin-section-tab"        data-section="reviews" role="tab">Reviews</button>
         <button class="admin-section-tab"        data-section="coupons" role="tab">Coupons</button>
+        <button class="admin-section-tab"        data-section="launch"  role="tab">Launch list</button>
         <button class="admin-section-tab"        data-section="site"    role="tab">Site</button>
       </div>
 
@@ -101,6 +102,36 @@
         </div>
 
         <section class="admin-list" id="adminOrdersList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+
+      <!-- ============== LAUNCH LIST section ============== -->
+      <div class="admin-section" data-section="launch" hidden>
+        <div class="coupons-head">
+          <div>
+            <h3 class="coupons-title">Launch-day notify list</h3>
+            <p class="coupons-sub">Everyone who signed up via the homepage countdown modal. Use "WhatsApp all" on launch day to message them with a single tap.</p>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="whatsappAllSignups()">📱 WhatsApp all</button>
+            <button class="btn btn-secondary" onclick="exportSignupsCSV()">⬇️ Export CSV</button>
+          </div>
+        </div>
+
+        <section class="admin-stats">
+          <div class="stat-card accent"><div class="stat-num" id="lsStatTotal">–</div><div class="stat-label">Total signups</div></div>
+          <div class="stat-card success"><div class="stat-num" id="lsStatNotified">–</div><div class="stat-label">Notified</div></div>
+          <div class="stat-card warning"><div class="stat-num" id="lsStatPending">–</div><div class="stat-label">Pending</div></div>
+          <div class="stat-card"><div class="stat-num" id="lsStatToday">–</div><div class="stat-label">Today</div></div>
+        </section>
+
+        <div class="admin-toolbar">
+          <input type="search" id="adminLaunchSearch" placeholder="Search by name or phone…" class="admin-search">
+          <button class="btn btn-secondary" onclick="loadLaunchSignups()">Refresh</button>
+        </div>
+
+        <section class="admin-list" id="adminLaunchList">
           <div class="admin-empty">Loading…</div>
         </section>
       </div>

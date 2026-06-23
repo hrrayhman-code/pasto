@@ -332,6 +332,41 @@ const SettingsAPI = {
 
 
 // ==================================================
+// LAUNCH SIGNUPS API — pre-launch notify list
+// ==================================================
+const LaunchSignupsAPI = {
+  // Public — submit a new signup
+  async submit({ name, phone }) {
+    const { error } = await sb.from('launch_signups').insert({
+      name: (name || '').trim() || null,
+      phone: phone.trim(),
+      source: 'website'
+    });
+    if (error) throw error;
+  },
+  // Admin — list all signups
+  async listAll() {
+    const { data, error } = await sb
+      .from('launch_signups').select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  // Admin — mark one as notified
+  async markNotified(id, notified = true) {
+    const patch = { notified, notified_at: notified ? new Date().toISOString() : null };
+    const { error } = await sb.from('launch_signups').update(patch).eq('id', id);
+    if (error) throw error;
+  },
+  // Admin — delete
+  async remove(id) {
+    const { error } = await sb.from('launch_signups').delete().eq('id', id);
+    if (error) throw error;
+  }
+};
+
+
+// ==================================================
 // AUTH HELPERS (used by admin dashboard)
 // ==================================================
 const AuthAPI = {

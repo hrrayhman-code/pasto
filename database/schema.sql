@@ -676,6 +676,40 @@ on conflict (key) do nothing;
 
 
 -- ============================================================
+-- LAUNCH SIGNUPS — pre-launch notify list
+-- ============================================================
+create table if not exists public.launch_signups (
+  id          uuid        primary key default gen_random_uuid(),
+  name        text,
+  phone       text        not null,
+  source      text                  default 'website',
+  notified    boolean     not null default false,
+  notified_at timestamptz,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists launch_signups_phone_idx on public.launch_signups(phone);
+create index if not exists launch_signups_notified_idx on public.launch_signups(notified);
+
+alter table public.launch_signups enable row level security;
+
+drop policy if exists "public_insert_signup"  on public.launch_signups;
+drop policy if exists "auth_signups_all"      on public.launch_signups;
+
+-- Anyone can submit a signup. They cannot read others' signups.
+create policy "public_insert_signup"
+  on public.launch_signups for insert
+  to anon, authenticated
+  with check (length(phone) >= 6);
+
+-- Admin (authenticated) can read, update, delete.
+create policy "auth_signups_all"
+  on public.launch_signups for all
+  to authenticated
+  using (true) with check (true);
+
+
+-- ============================================================
 -- Done. Next steps:
 --   1. Authentication → Users → "Add user" → create your admin
 --      account (email + password). This is who logs into admin.html.
