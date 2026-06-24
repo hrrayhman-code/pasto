@@ -671,7 +671,12 @@ insert into public.site_settings (key, value) values
   ('bank_account_number',''),
   ('bank_iban',         ''),
   ('bank_branch_code',  ''),
-  ('payment_card_note', 'After you submit, we will WhatsApp you a secure payment link. Pay there and your order goes into the kitchen.')
+  ('payment_card_note', 'After you submit, we will WhatsApp you a secure payment link. Pay there and your order goes into the kitchen.'),
+  -- Delivery zone settings (Karachi default — update via admin)
+  ('kitchen_lat',       '24.8607'),
+  ('kitchen_lng',       '67.0011'),
+  ('delivery_radius_km','10'),
+  ('delivery_fee',      '250')
 on conflict (key) do nothing;
 
 

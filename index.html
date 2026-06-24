@@ -683,6 +683,21 @@
   </div>
 
   <!-- ============================================== -->
+  <!-- DELIVERY ZONE WIDGET                           -->
+  <!-- Floating non-blocking card, bottom-left.       -->
+  <!-- Checks customer geolocation against kitchen    -->
+  <!-- and tells them if we can deliver.              -->
+  <!-- ============================================== -->
+  <aside class="delivery-widget" id="deliveryWidget" hidden aria-live="polite">
+    <button class="delivery-widget-close" id="deliveryWidgetClose" aria-label="Dismiss">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="delivery-widget-body" id="deliveryWidgetBody">
+      <!-- Filled dynamically -->
+    </div>
+  </aside>
+
+  <!-- ============================================== -->
   <!-- LIVE ORDER TRACKER                             -->
   <!-- Appears after a customer places an order.      -->
   <!-- Polls Supabase every 15s for status updates.   -->

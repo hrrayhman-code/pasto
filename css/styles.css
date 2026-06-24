@@ -2105,6 +2105,128 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================
+   DELIVERY ZONE WIDGET (floating bottom-left)
+   ============================================ */
+.delivery-widget {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 88;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--cream);
+  border: 1.5px solid var(--charcoal);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px -16px rgba(26, 26, 26, 0.3);
+  padding: 18px 18px 16px;
+  animation: dwSlideIn 0.5s cubic-bezier(.2,.8,.2,1.05);
+}
+@keyframes dwSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.delivery-widget[hidden] { display: none; }
+
+.delivery-widget-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.delivery-widget-close:hover { background: rgba(26, 26, 26, 0.06); color: var(--charcoal); }
+.delivery-widget-close svg { width: 14px; height: 14px; }
+
+.dw-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+.dw-title {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+  padding-right: 28px;
+}
+.dw-text {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.dw-text strong { color: var(--charcoal); font-weight: 700; }
+.dw-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s, color 0.2s;
+}
+.dw-btn-primary {
+  background: var(--charcoal);
+  color: var(--cream);
+}
+.dw-btn-primary:hover {
+  background: var(--red);
+  transform: scale(1.04);
+}
+.dw-btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid rgba(26, 26, 26, 0.15);
+}
+.dw-btn-ghost:hover {
+  color: var(--charcoal);
+  border-color: var(--charcoal);
+}
+
+/* Subtle "tba" hint line for delivery fee in checkout */
+.ct-line.ct-note {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .delivery-widget {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
+
+/* If both the delivery widget AND the order tracker are visible,
+   stack them: tracker stays bottom-right, widget moves up. */
+@media (min-width: 601px) {
+  body:has(.order-tracker:not([hidden])) .delivery-widget {
+    bottom: 20px;
+    left: 20px;
+  }
+}
+
+/* ============================================
    PRE-LAUNCH COUNTDOWN BANNER + MODAL
    ============================================ */
 

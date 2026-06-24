@@ -928,8 +928,42 @@ async function loadBankSettings() {
     document.getElementById('bsIban').value     = s.bank_iban || '';
     document.getElementById('bsBranch').value   = s.bank_branch_code || '';
     document.getElementById('bsCardNote').value = s.payment_card_note || '';
+    // Delivery settings are in the same site_settings table
+    document.getElementById('dsLat').value      = s.kitchen_lat || '';
+    document.getElementById('dsLng').value      = s.kitchen_lng || '';
+    document.getElementById('dsRadius').value   = s.delivery_radius_km || '';
+    document.getElementById('dsFee').value      = s.delivery_fee || '';
   } catch (err) {
     console.warn('load bank settings failed', err);
+  }
+}
+
+async function saveDeliverySettings(e) {
+  e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const lat    = document.getElementById('dsLat').value.trim();
+  const lng    = document.getElementById('dsLng').value.trim();
+  const radius = document.getElementById('dsRadius').value.trim();
+  const fee    = document.getElementById('dsFee').value.trim();
+
+  if (!lat || !lng || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+    showToast('Please enter valid latitude and longitude'); return;
+  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  try {
+    await Promise.all([
+      SettingsAPI.set('kitchen_lat',        lat),
+      SettingsAPI.set('kitchen_lng',        lng),
+      SettingsAPI.set('delivery_radius_km', radius || '10'),
+      SettingsAPI.set('delivery_fee',       fee    || '250')
+    ]);
+    showToast('Delivery settings saved');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save delivery settings';
   }
 }
 
