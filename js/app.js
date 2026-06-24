@@ -820,9 +820,19 @@ function updateCountdownDisplay() {
   }
 }
 
+function syncLaunchBannerHeight() {
+  const banner = document.getElementById('launchBanner');
+  if (!banner || banner.hidden) {
+    document.documentElement.style.setProperty('--launch-banner-h', '0px');
+    return;
+  }
+  const h = banner.getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--launch-banner-h', h + 'px');
+}
+
 function initPreLaunchMode() {
   if (!isPreLaunch()) {
-    // We're live. Make sure the banner / badge are hidden (they already are).
+    document.documentElement.style.setProperty('--launch-banner-h', '0px');
     return;
   }
   // Show banner + hero badge
@@ -830,8 +840,21 @@ function initPreLaunchMode() {
   const badge  = document.getElementById('heroLaunchBadge');
   if (banner) banner.hidden = false;
   if (badge)  badge.hidden  = false;
-  // Add CSS hook on body for global pre-launch styling tweaks
   document.body.classList.add('pre-launch');
+
+  // Make sure the nav slides down by exactly the banner's height,
+  // even when it wraps to multiple rows on small screens.
+  syncLaunchBannerHeight();
+  window.addEventListener('resize', syncLaunchBannerHeight);
+  if (window.ResizeObserver && banner) {
+    new ResizeObserver(syncLaunchBannerHeight).observe(banner);
+  }
+  // Belt-and-braces: re-measure after fonts load + on next animation frames
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncLaunchBannerHeight);
+  }
+  requestAnimationFrame(syncLaunchBannerHeight);
+  setTimeout(syncLaunchBannerHeight, 200);
 
   // Start the countdown loop
   updateCountdownDisplay();
