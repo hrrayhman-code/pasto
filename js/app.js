@@ -573,12 +573,6 @@ function renderDeliveryWidget() {
   if (!widget || !body) return;
 
   const state = getDeliveryState();
-  // Once the customer has actually given a location result (in or out
-  // of zone), respect their dismiss — don't pester them again.
-  const resolved = state && (state.status === 'in_zone' || state.status === 'out_of_zone');
-  const dismissed = lsGet(LS_DELIVERY_DISMISSED, false);
-  if (resolved && dismissed) { widget.hidden = true; return; }
-
   widget.hidden = false;
 
   if (!state) {
@@ -694,21 +688,17 @@ function dismissDeliveryWidget() {
   const w = document.getElementById('deliveryWidget');
   if (w) w.hidden = true;
 
-  // If the customer's location has been resolved (in or out of zone),
-  // respect their dismiss permanently — set the flag and stop.
-  if (resolved) {
-    lsSet(LS_DELIVERY_DISMISSED, true);
-    return;
-  }
+  // If they've already shared location (zone determined), we're done.
+  // Stays hidden forever — initDeliveryWidget() also skips on future
+  // page loads.
+  if (resolved) return;
 
   // Otherwise: they dismissed without sharing location. Bring the
-  // widget back in DELIVERY_REAPPEAR_MS so we can keep asking until
-  // they decide. (User explicitly asked for this behavior.)
+  // widget back in DELIVERY_REAPPEAR_MS so we keep asking.
   if (_deliveryReappearTimer) clearTimeout(_deliveryReappearTimer);
   _deliveryReappearTimer = setTimeout(() => {
-    // Clear any stale "denied" / "error" state so the widget shows
-    // the initial prompt again (the most actionable variant) rather
-    // than the "try again" recovery message.
+    // Clear any stale "denied" / "error" / "checking" state so the
+    // widget shows the initial prompt fresh, not a recovery message.
     const cur = getDeliveryState();
     if (cur && (cur.status === 'denied' || cur.status === 'error' || cur.status === 'checking')) {
       clearDeliveryState();
@@ -727,17 +717,18 @@ function initDeliveryWidget() {
     if (s.delivery_fee)        DELIVERY.fee        = parseInt(s.delivery_fee, 10) || DELIVERY.fee;
   }).catch(() => { /* fall back to defaults */ });
 
-  // If the customer's previous session had no resolved location, treat
-  // each page load as a fresh start — clear the dismiss flag so the
-  // widget appears again on the new visit.
+  // Once the customer's zone has been determined (in-zone or
+  // out-of-zone), don't auto-show the widget again on any future
+  // page load. They already know if we deliver to them.
   const state = getDeliveryState();
   const resolved = state && (state.status === 'in_zone' || state.status === 'out_of_zone');
-  if (!resolved) {
-    localStorage.removeItem(LS_DELIVERY_DISMISSED);
+  if (resolved) {
+    // Make sure the widget stays hidden — nothing more to do here.
+    document.getElementById('deliveryWidgetClose')?.addEventListener('click', dismissDeliveryWidget);
+    return;
   }
 
-  // Show after a short delay (delivery info is useful even before launch
-  // — visitors can check zone now and plan to order on launch day).
+  // Otherwise: show after a short delay so it doesn't crash first paint.
   setTimeout(() => {
     renderDeliveryWidget();
   }, 3000);
