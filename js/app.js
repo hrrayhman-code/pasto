@@ -889,37 +889,31 @@ async function submitLaunchNotify() {
     return;
   }
 
-  // Find the submit button so we can show progress feedback
   const submitBtn = document.querySelector('#launchModal .modal-submit');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving…'; }
 
   try {
-    // SAVE TO SUPABASE so the signup is actually stored centrally
-    // (not just in their browser's localStorage). This is the list
-    // that admin will see in the dashboard.
+    // Save directly to Supabase so the signup appears in your
+    // admin Launch list (no WhatsApp roundtrip needed).
     await LaunchSignupsAPI.submit({ name, phone });
   } catch (err) {
     console.error('[Pasto] launch signup failed:', err);
-    // Don't block the user — still let them complete via WhatsApp
-    showToast('Saved — also opening WhatsApp to confirm');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Notify me'; }
+    const raw = (err && err.message) || '';
+    if (/launch_signups.*does not exist|schema cache/i.test(raw)) {
+      showToast('Setup pending — please re-run schema.sql in Supabase.');
+    } else {
+      showToast('Could not save — please try again');
+    }
+    return;
   }
 
-  // Remember locally so we don't show the same person the form again
+  // Remember locally so we skip the same form for this visitor
   lsSet('pastoLaunchSignup', { name, phone, ts: Date.now() });
-
-  // ALSO open WhatsApp so the customer can press send and confirm
-  // (this is a belt-and-braces backup — even if their network drops
-  // mid-Supabase-call, the WhatsApp message still reaches you)
-  const msg = `*Pasto launch notify signup*\n\n` +
-    `*Name:* ${name || '(not provided)'}\n` +
-    `*Phone:* ${phone}\n\n` +
-    `Please add me to the launch-day notify list. I'm ready for July 1st!`;
-  const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
-  window.open(url, '_blank');
 
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Notify me'; }
   closeLaunchModal();
-  showToast(`Thanks${name ? ', ' + name : ''}! You'll be the first to know on July 1st 🎉`);
+  showToast(`Thanks${name ? ', ' + name : ''}! You'll be the first to know on 1st July 🎉`);
 }
 
 
