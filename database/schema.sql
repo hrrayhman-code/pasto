@@ -672,9 +672,9 @@ insert into public.site_settings (key, value) values
   ('bank_iban',         ''),
   ('bank_branch_code',  ''),
   ('payment_card_note', 'After you submit, we will WhatsApp you a secure payment link. Pay there and your order goes into the kitchen.'),
-  -- Delivery zone settings (Karachi default — update via admin)
-  ('kitchen_lat',       '24.8607'),
-  ('kitchen_lng',       '67.0011'),
+  -- Delivery zone settings — Pasto kitchen in DHA, Karachi
+  ('kitchen_lat',       '24.858124505268947'),
+  ('kitchen_lng',       '67.06075218456665'),
   ('delivery_radius_km','10'),
   ('delivery_fee',      '250')
 on conflict (key) do nothing;

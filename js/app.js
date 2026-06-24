@@ -518,9 +518,10 @@ const LS_DELIVERY = 'pastoDeliveryCheck';
 const LS_DELIVERY_DISMISSED = 'pastoDeliveryDismissed';
 
 // Defaults — overridden by site_settings from Supabase
+// Pasto kitchen actual coordinates (DHA Karachi)
 let DELIVERY = {
-  kitchenLat: 24.8607,
-  kitchenLng: 67.0011,
+  kitchenLat: 24.858124505268947,
+  kitchenLng: 67.06075218456665,
   radiusKm: 10,
   fee: 250
 };
