@@ -520,7 +520,23 @@ const LS_DELIVERY_DISMISSED = 'pastoDeliveryDismissed';
 // How long the widget stays hidden after the user closes it before
 // popping back up. Only applies when location hasn't been resolved yet.
 const DELIVERY_REAPPEAR_MS = 3000;
+
+// How long a resolved (in_zone / out_of_zone) result is considered
+// "fresh" before we ask the customer again. Set to 6 hours — same
+// browsing session won't be re-prompted, but a return visit later
+// (e.g. lunch -> dinner, or the next day) will see a fresh prompt.
+const DELIVERY_RESULT_TTL_MS = 6 * 60 * 60 * 1000;
+
 let _deliveryReappearTimer = null;
+
+// Returns true when the saved zone result is still recent enough
+// that we shouldn't pester the customer.
+function isDeliveryResultFresh() {
+  const s = getDeliveryState();
+  if (!s || (s.status !== 'in_zone' && s.status !== 'out_of_zone')) return false;
+  if (!s.ts) return false;
+  return (Date.now() - s.ts) < DELIVERY_RESULT_TTL_MS;
+}
 
 // Defaults — overridden at runtime by site_settings from Supabase.
 // Owner sets the real kitchen coordinates from admin.html → Site tab.
@@ -556,7 +572,11 @@ function clearDeliveryState() {
 
 function isInDeliveryZone() {
   const s = getDeliveryState();
-  return s && s.status === 'in_zone';
+  if (!s || s.status !== 'in_zone') return false;
+  // Treat stale results as unknown so we re-check rather than charge
+  // a delivery fee on an outdated zone assumption.
+  if (s.ts && (Date.now() - s.ts) >= DELIVERY_RESULT_TTL_MS) return false;
+  return true;
 }
 
 function applicableDeliveryFee() {
@@ -681,17 +701,14 @@ function requestDeliveryCheck() {
 }
 
 function dismissDeliveryWidget() {
-  const state = getDeliveryState();
-  const resolved = state && (state.status === 'in_zone' || state.status === 'out_of_zone');
-
   // Hide the widget immediately
   const w = document.getElementById('deliveryWidget');
   if (w) w.hidden = true;
 
-  // If they've already shared location (zone determined), we're done.
-  // Stays hidden forever — initDeliveryWidget() also skips on future
-  // page loads.
-  if (resolved) return;
+  // If they've already shared location AND the result is still fresh
+  // (within TTL), don't pester them further this session. The widget
+  // will re-appear on a future visit once the TTL elapses.
+  if (isDeliveryResultFresh()) return;
 
   // Otherwise: they dismissed without sharing location. Bring the
   // widget back in DELIVERY_REAPPEAR_MS so we keep asking.
@@ -717,18 +734,25 @@ function initDeliveryWidget() {
     if (s.delivery_fee)        DELIVERY.fee        = parseInt(s.delivery_fee, 10) || DELIVERY.fee;
   }).catch(() => { /* fall back to defaults */ });
 
-  // Once the customer's zone has been determined (in-zone or
-  // out-of-zone), don't auto-show the widget again on any future
-  // page load. They already know if we deliver to them.
-  const state = getDeliveryState();
-  const resolved = state && (state.status === 'in_zone' || state.status === 'out_of_zone');
-  if (resolved) {
-    // Make sure the widget stays hidden — nothing more to do here.
+  // If the customer's zone was checked recently (within the TTL —
+  // currently 6 hours), don't ask again. They're in the middle of
+  // a session and already know their result.
+  // Once the TTL elapses, the stale result is cleared and we ask
+  // fresh (handles "they ordered at lunch, come back at dinner" or
+  // "they checked yesterday, come back today").
+  if (isDeliveryResultFresh()) {
     document.getElementById('deliveryWidgetClose')?.addEventListener('click', dismissDeliveryWidget);
     return;
   }
 
-  // Otherwise: show after a short delay so it doesn't crash first paint.
+  // If the stored state is stale (older than TTL), wipe it so the
+  // widget shows the friendly initial prompt, not a recovery message.
+  const state = getDeliveryState();
+  if (state && state.ts && (Date.now() - state.ts) >= DELIVERY_RESULT_TTL_MS) {
+    clearDeliveryState();
+  }
+
+  // Show after a short delay so it doesn't crash first paint.
   setTimeout(() => {
     renderDeliveryWidget();
   }, 3000);
