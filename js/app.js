@@ -685,10 +685,6 @@ function dismissDeliveryWidget() {
 
 // Show the widget after a short delay, so it doesn't crash the first paint.
 function initDeliveryWidget() {
-  // Don't show during pre-launch — visitors should focus on the countdown,
-  // not delivery details for orders they can't place yet.
-  if (isPreLaunch()) return;
-
   // Load delivery settings from Supabase (overrides defaults)
   SettingsAPI.getAll().then(s => {
     if (s.kitchen_lat)         DELIVERY.kitchenLat = parseFloat(s.kitchen_lat) || DELIVERY.kitchenLat;
@@ -697,6 +693,8 @@ function initDeliveryWidget() {
     if (s.delivery_fee)        DELIVERY.fee        = parseInt(s.delivery_fee, 10) || DELIVERY.fee;
   }).catch(() => { /* fall back to defaults */ });
 
+  // Show after a short delay (delivery info is useful even before launch
+  // — visitors can check zone now and plan to order on launch day).
   setTimeout(() => {
     renderDeliveryWidget();
   }, 3000);
