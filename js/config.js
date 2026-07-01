@@ -59,6 +59,14 @@ const CONFIG = {
   deliveryAreas: 'Most areas of Karachi',
 
   // ============================================
+  // BUSINESS HOURS — orders are BLOCKED outside these hours.
+  // Times are in Karachi local time (Asia/Karachi, UTC+5).
+  // Format: 'HH:MM' in 24-hour.
+  // ============================================
+  businessHoursStart: '18:00',   // 6:00 PM
+  businessHoursEnd:   '23:00',   // 11:00 PM
+
+  // ============================================
   // LAUNCH DATE
   // ============================================
   // Set this to the moment you want orders to go live.

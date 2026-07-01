@@ -762,6 +762,94 @@ function initDeliveryWidget() {
 
 
 // ==================================================
+// BUSINESS HOURS
+// ==================================================
+// Orders can only be placed during business hours (6 PM–11 PM
+// Karachi time by default — configurable in js/config.js).
+// Menu browsing and cart adding are still allowed outside hours.
+// ==================================================
+
+function _karachiNow() {
+  // Karachi is UTC+5 with no DST.
+  const nowUtcMs = Date.now();
+  const karachiMs = nowUtcMs + 5 * 60 * 60 * 1000;
+  return new Date(karachiMs);
+}
+
+function _parseHm(hm) {
+  if (!hm) return null;
+  const [h, m] = hm.split(':').map(n => parseInt(n, 10));
+  return { h: h || 0, m: m || 0 };
+}
+
+function isBusinessHours() {
+  const start = _parseHm(CONFIG.businessHoursStart || '18:00');
+  const end   = _parseHm(CONFIG.businessHoursEnd   || '23:00');
+  if (!start || !end) return true; // if misconfigured, don't block
+
+  const kt = _karachiNow();
+  const curMins = kt.getUTCHours() * 60 + kt.getUTCMinutes();
+  const startMins = start.h * 60 + start.m;
+  const endMins   = end.h * 60 + end.m;
+
+  // Simple case (hours don't cross midnight) — matches Pasto's 18:00–23:00
+  if (startMins <= endMins) {
+    return curMins >= startMins && curMins < endMins;
+  }
+  // Wrap-around case (e.g. 22:00 – 03:00)
+  return curMins >= startMins || curMins < endMins;
+}
+
+function minutesUntilOpen() {
+  const start = _parseHm(CONFIG.businessHoursStart || '18:00');
+  if (!start) return null;
+  const kt = _karachiNow();
+  const curMins = kt.getUTCHours() * 60 + kt.getUTCMinutes();
+  const startMins = start.h * 60 + start.m;
+  let diff = startMins - curMins;
+  if (diff <= 0) diff += 24 * 60; // opens tomorrow
+  return diff;
+}
+
+function formatHhMmDisplay(hm) {
+  const p = _parseHm(hm);
+  if (!p) return hm;
+  const suffix = p.h >= 12 ? 'PM' : 'AM';
+  let hr = p.h % 12; if (hr === 0) hr = 12;
+  return `${hr}:${String(p.m).padStart(2, '0')} ${suffix}`;
+}
+
+function openClosedModal() {
+  const startDisp = formatHhMmDisplay(CONFIG.businessHoursStart);
+  const endDisp   = formatHhMmDisplay(CONFIG.businessHoursEnd);
+  const untilOpen = minutesUntilOpen();
+
+  let statusHtml = `<div class="closed-hours">Hours: ${startDisp} – ${endDisp}</div>`;
+  if (untilOpen != null) {
+    const hrs = Math.floor(untilOpen / 60);
+    const mins = untilOpen % 60;
+    const partsList = [];
+    if (hrs > 0)  partsList.push(`${hrs} hour${hrs === 1 ? '' : 's'}`);
+    if (mins > 0) partsList.push(`${mins} minute${mins === 1 ? '' : 's'}`);
+    if (partsList.length === 0) partsList.push('less than a minute');
+    statusHtml += `<div class="closed-countdown">Opens in <strong>${partsList.join(' ')}</strong></div>`;
+  }
+  const statusEl = document.getElementById('closedStatus');
+  if (statusEl) statusEl.innerHTML = statusHtml;
+
+  document.getElementById('closedModal')?.classList.add('open');
+  document.getElementById('overlay')?.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeClosedModal() {
+  document.getElementById('closedModal')?.classList.remove('open');
+  document.getElementById('overlay')?.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+
+// ==================================================
 // PRE-LAUNCH MODE
 // ==================================================
 // Reads CONFIG.launchDate. While the current time is BEFORE the
@@ -1098,6 +1186,11 @@ function openCheckoutModal() {
     openLaunchModal();
     return;
   }
+  if (!isBusinessHours()) {
+    closeCart();
+    openClosedModal();
+    return;
+  }
   if (cartItemCount() === 0) return;
   closeCart();
   setTimeout(() => {
@@ -1343,6 +1436,15 @@ function renderCheckoutTotal() {
 }
 
 async function submitOrder() {
+  // Belt-and-braces: block orders if outside business hours, even if
+  // the customer somehow reached the submit button (e.g. hours crossed
+  // while they were filling in the form).
+  if (!isBusinessHours()) {
+    closeModal();
+    openClosedModal();
+    return;
+  }
+
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
   const address = document.getElementById('custAddress').value.trim();
@@ -1372,7 +1474,7 @@ async function submitOrder() {
     const fileInput = document.getElementById('payProof');
     if (!fileInput.files || !fileInput.files[0]) {
       showToast('Please upload your payment screenshot');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
       return;
     }
     try {
@@ -1381,7 +1483,7 @@ async function submitOrder() {
     } catch (err) {
       console.error('[Pasto] proof upload failed:', err);
       showToast('Could not upload screenshot — try a smaller image');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
       return;
     }
   }
@@ -1418,7 +1520,7 @@ async function submitOrder() {
       friendly = 'Could not save order: ' + raw;
     }
     showToast(friendly);
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
     return;
   }
 
@@ -1488,7 +1590,7 @@ async function submitOrder() {
   _appliedCoupon = null;
   _useFreeCredit = false;
   _loyaltyForCheckout = null;
-  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
 
   // Close checkout modal — confirmation modal takes over now
   closeModal();
@@ -1969,6 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal();
       closeReviewModal();
       closeLaunchModal();
+      closeClosedModal();
     }
   });
 
