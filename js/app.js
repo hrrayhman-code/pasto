@@ -1458,7 +1458,10 @@ async function submitOrder() {
   if (paymentProofUrl) msg += `\n*Proof:* ${paymentProofUrl}`;
   if (notes) msg += `\n\n*Notes:* ${notes}`;
 
-  const url = buildWhatsAppUrl(CONFIG.whatsappNumber, msg);
+  // Instagram DM URL — the customer will paste their order code in the chat.
+  // (Instagram doesn't support pre-filled messages via URL like WhatsApp
+  // did, so we auto-copy the code on button tap in showOrderConfirmModal.)
+  const url = buildInstagramDmUrl(CONFIG.instagramHandle);
 
   // Remember the order id locally so the tracker survives page reloads.
   lsSet('pastoActiveOrder', {
@@ -1529,6 +1532,54 @@ function buildWhatsAppUrl(phone, message) {
   return `https://wa.me/${phone}?text=${encoded}`;
 }
 
+// Instagram doesn't support pre-filled DMs via URL, so this just
+// opens the DM thread (native app on mobile, web on desktop).
+function buildInstagramDmUrl(handle) {
+  const clean = (handle || '').replace(/^@/, '').trim();
+  if (isIOS()) {
+    // Native scheme — opens the profile in the app (customer taps
+    // Message from there, or Instagram sometimes deep-links straight
+    // to the DM if they've messaged before).
+    return `instagram://user?username=${clean}`;
+  }
+  // Universal — ig.me/m goes straight to the DM thread on Android and
+  // web. Falls back gracefully to the profile if the app isn't installed.
+  return `https://ig.me/m/${clean}`;
+}
+
+// Copy the current order code to clipboard.
+function copyOrderCode() {
+  const code = document.getElementById('confirmOrderCode')?.textContent || '';
+  const toCopy = code ? `Order #${code}` : '';
+  if (!toCopy) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(toCopy).then(
+      () => showToast(`Copied "${toCopy}" — paste in the DM`),
+      () => showToast('Could not copy — long-press the code to copy manually')
+    );
+  } else {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = toCopy;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try { document.execCommand('copy'); showToast(`Copied "${toCopy}"`); }
+    catch { showToast('Could not copy — long-press the code to copy manually'); }
+    document.body.removeChild(textarea);
+  }
+}
+
+// Called when the customer taps the Instagram button — copy the code
+// first so they can paste it into the DM once Instagram opens.
+function handleInstagramConfirm() {
+  copyOrderCode();
+  // Give the clipboard a beat to receive the write on some Safari
+  // versions before we let the anchor navigate away.
+  // (We don't preventDefault — the anchor navigates naturally after.)
+}
+
 // Placeholder to satisfy the confirm modal's Done button;
 // populated with the current order's details each time modal opens.
 let _pendingOrderInfo = null;
@@ -1546,7 +1597,7 @@ function finishOrderFlow() {
   }
 }
 
-function showOrderConfirmModal(placed, whatsappUrl, payMethod) {
+function showOrderConfirmModal(placed, instagramUrl, payMethod) {
   const code = placed.short_code || '';
   const codeEl = document.getElementById('confirmOrderCode');
   if (codeEl) codeEl.textContent = code;
@@ -1554,30 +1605,28 @@ function showOrderConfirmModal(placed, whatsappUrl, payMethod) {
   // Remember for the "Done" button
   _pendingOrderInfo = { id: placed.id, short_code: code, payMethod };
 
-  const link = document.getElementById('orderConfirmWhatsAppLink');
+  const link = document.getElementById('orderConfirmInstagramLink');
   if (link) {
-    link.href = whatsappUrl;
-    // On iOS we WANT to navigate the current tab (no target=_blank),
-    // because target=_blank + WhatsApp URL scheme is unreliable.
-    // On other platforms we prefer a new tab so the site stays open.
+    link.href = instagramUrl;
+    // On iOS use the native URL scheme WITHOUT target=_blank so the
+    // current tab navigates cleanly. On desktop / Android open in a
+    // new tab so the site stays visible.
     if (isIOS()) {
       link.removeAttribute('target');
     } else {
       link.setAttribute('target', '_blank');
     }
-    // When they tap, schedule tracker startup — but don't intercept
-    // the navigation itself. onclick fires BEFORE the anchor navigates.
-    link.onclick = () => {
-      // Persist tracker state now so it appears when they return
+    // Merge the copy + tracker-start with whatever handleInstagramConfirm
+    // is already doing via inline onclick — we set a listener too.
+    link.addEventListener('click', function trackerOnConfirm() {
       startOrderTracker(placed.id);
       const toastMsg = payMethod === 'bank_transfer'
-        ? `Order #${code} placed — we're verifying your payment`
-        : `Order #${code} placed! Tracking below.`;
+        ? `Order #${code} saved — we're verifying your payment`
+        : `Order #${code} saved! Track it below.`;
       setTimeout(() => showToast(toastMsg), 400);
-      // Don't close the modal here — on iOS the current tab is
-      // navigating away, on desktop the modal stays open in the
-      // background tab. Modal auto-closes if they come back.
-    };
+      // Fire once — remove listener so it doesn't stack on repeat modals
+      link.removeEventListener('click', trackerOnConfirm);
+    }, { once: true });
   }
 
   // Show the confirm modal

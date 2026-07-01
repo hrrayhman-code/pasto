@@ -660,17 +660,29 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
     <h2 class="modal-title">Order saved!</h2>
-    <p class="modal-sub">
-      Order <strong>#<span id="confirmOrderCode">–</span></strong> is in our system. <br>
-      <span class="oc-emphasis">One last step</span> — tap below to send the details on WhatsApp so we can start cooking right away.
+    <p class="modal-sub">We already received your order — here's your code:</p>
+
+    <div class="oc-code-card">
+      <div class="oc-code-label">Your order code</div>
+      <div class="oc-code-value">#<span id="confirmOrderCode">–</span></div>
+      <button type="button" class="oc-copy-btn" onclick="copyOrderCode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        Copy code
+      </button>
+    </div>
+
+    <p class="oc-instructions">
+      Tap the button below — we'll copy your order code and open Instagram DM.
+      Paste the code in the chat, send it, and we'll confirm your order 🍝
     </p>
 
     <a href="#"
        rel="noopener"
-       class="whatsapp-final-cta"
-       id="orderConfirmWhatsAppLink">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-      Send order on WhatsApp
+       class="instagram-final-cta"
+       id="orderConfirmInstagramLink"
+       onclick="handleInstagramConfirm()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/></svg>
+      Message us on Instagram
     </a>
 
     <button type="button" class="oc-done-btn" onclick="finishOrderFlow()">
@@ -678,7 +690,7 @@
     </button>
 
     <p class="whatsapp-warning">
-      We already received your order in our system 🎉 The WhatsApp step is a nice-to-have — if it doesn't work on your phone, just tap "Done" and we'll get cooking right away.
+      No stress — your order is safe in our system. The Instagram message is a nice-to-have. If you skip it we'll still start cooking and you can track everything below 🎉
     </p>
   </div>
 

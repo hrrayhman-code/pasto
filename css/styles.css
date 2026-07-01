@@ -2514,13 +2514,14 @@ body.pre-launch #navCart {
   color: var(--red);
   font-weight: 700;
 }
-.whatsapp-final-cta {
+/* Instagram-branded CTA (the primary button in the order confirm modal) */
+.instagram-final-cta {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   width: 100%;
-  background: #25D366;    /* WhatsApp green */
+  background: linear-gradient(45deg, #F58529 0%, #DD2A7B 40%, #8134AF 70%, #515BD4 100%);
   color: #ffffff;
   padding: 18px 24px;
   border-radius: 100px;
@@ -2529,20 +2530,95 @@ body.pre-launch #navCart {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-decoration: none;
-  margin-top: 20px;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-  box-shadow: 0 8px 24px -8px rgba(37, 211, 102, 0.4);
+  margin-top: 16px;
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+  box-shadow: 0 8px 24px -8px rgba(221, 42, 123, 0.45);
 }
-.whatsapp-final-cta:hover {
-  background: #128C7E;
+.instagram-final-cta:hover {
   transform: scale(1.02);
-  box-shadow: 0 12px 32px -8px rgba(37, 211, 102, 0.5);
+  filter: brightness(1.05);
+  box-shadow: 0 12px 32px -8px rgba(221, 42, 123, 0.55);
 }
-.whatsapp-final-cta svg {
+.instagram-final-cta svg {
   width: 22px;
   height: 22px;
   color: #ffffff;
 }
+
+/* Order code card in the confirm modal — big, clear, copyable */
+.oc-code-card {
+  background: var(--cream-dark);
+  border: 1.5px dashed var(--charcoal);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin: 16px 0 20px;
+  text-align: center;
+}
+.oc-code-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.oc-code-value {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 36px;
+  letter-spacing: 0.06em;
+  color: var(--red);
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.oc-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--charcoal);
+  color: var(--cream);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.oc-copy-btn:hover {
+  background: var(--red);
+  transform: scale(1.04);
+}
+.oc-copy-btn svg { width: 14px; height: 14px; }
+
+.oc-instructions {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin-bottom: 4px;
+}
+
+/* Legacy WhatsApp CTA (kept for anywhere else it might be referenced) */
+.whatsapp-final-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: #25D366;
+  color: #ffffff;
+  padding: 18px 24px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 20px;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  box-shadow: 0 8px 24px -8px rgba(37, 211, 102, 0.4);
+}
+.whatsapp-final-cta svg { width: 22px; height: 22px; color: #ffffff; }
 .oc-done-btn {
   display: block;
   width: 100%;
