@@ -1440,6 +1440,27 @@ function showInPageOrderAlert(order) {
   setTimeout(() => wrap.remove(), 20000);
 }
 
+// Manual test — fires the exact same alert path a real order would.
+// Lets you verify chime + vibration + modal + browser notification
+// all work on your specific device without having to place a test order.
+function fireTestAlert() {
+  const fake = {
+    id: 'test-' + Date.now(),
+    short_code: 'TEST' + Math.floor(Math.random() * 900 + 100),
+    customer_name: 'Test Order',
+    customer_phone: '03000000000',
+    customer_address: 'This is a test alert to verify your notifications',
+    payment_method: 'cod',
+    total: 999,
+    items: [
+      { qty: 1, name: 'Pasta Alfredo', price: 650 },
+      { qty: 1, name: 'Garlic Bread', price: 250 }
+    ],
+    notes: null
+  };
+  handleRealtimeNewOrder(fake);
+}
+
 async function requestNotifPermission() {
   if (!('Notification' in window)) {
     showToast('Your browser does not support notifications');
