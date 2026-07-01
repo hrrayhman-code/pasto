@@ -1,0 +1,28 @@
+{
+  "name": "Pasto Admin",
+  "short_name": "Pasto Admin",
+  "description": "Pasto by Aiman — admin dashboard for orders, menu, and site management.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5EDE0",
+  "theme_color": "#E63946",
+  "icons": [
+    {
+      "src": "assets/logo-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

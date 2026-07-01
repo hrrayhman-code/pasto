@@ -3334,6 +3334,10 @@ body.noa-ringing {
 .admin-body {
   background: var(--cream-dark);
   min-height: 100vh;
+  /* When installed as a home-screen app on iOS, the status bar sits
+     directly over the top of the page. This adds room for it. */
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Make sure [hidden] always wins over any later display rule */
