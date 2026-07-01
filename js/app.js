@@ -1458,7 +1458,7 @@ async function submitOrder() {
   if (paymentProofUrl) msg += `\n*Proof:* ${paymentProofUrl}`;
   if (notes) msg += `\n\n*Notes:* ${notes}`;
 
-  const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
+  const url = buildWhatsAppUrl(CONFIG.whatsappNumber, msg);
 
   // Remember the order id locally so the tracker survives page reloads.
   lsSet('pastoActiveOrder', {
@@ -1505,30 +1505,78 @@ async function submitOrder() {
 // ==================================================
 // ORDER CONFIRMATION MODAL (post-save)
 // ==================================================
-// Shown AFTER an order is saved to Supabase. Its "Send order on
-// WhatsApp" button is a real <a> tag — tapping it counts as a
-// direct user gesture, which is the only reliable way to open a
-// new tab from iOS Safari.
+// Shown AFTER an order is saved to Supabase. Uses different
+// WhatsApp URL schemes per platform for maximum reliability:
+//   - iOS  → whatsapp://send?phone=X&text=Y (native app scheme)
+//   - Web  → https://wa.me/X?text=Y         (universal URL)
+// Also provides a "Done" button so the customer can finish the
+// flow even if WhatsApp doesn't launch (the order is already
+// saved and admin is already notified via realtime).
 // ==================================================
+
+function isIOS() {
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) ||
+         (ua.includes('Mac') && 'ontouchend' in document);
+}
+
+function buildWhatsAppUrl(phone, message) {
+  const encoded = encodeURIComponent(message);
+  if (isIOS()) {
+    // Native URL scheme — iOS will launch the WhatsApp app directly
+    return `whatsapp://send?phone=${phone}&text=${encoded}`;
+  }
+  return `https://wa.me/${phone}?text=${encoded}`;
+}
+
+// Placeholder to satisfy the confirm modal's Done button;
+// populated with the current order's details each time modal opens.
+let _pendingOrderInfo = null;
+
+function finishOrderFlow() {
+  closeOrderConfirmModal();
+  if (_pendingOrderInfo) {
+    startOrderTracker(_pendingOrderInfo.id);
+    const code = _pendingOrderInfo.short_code || '';
+    const toastMsg = _pendingOrderInfo.payMethod === 'bank_transfer'
+      ? `Order #${code} placed — we're verifying your payment`
+      : `Order #${code} placed! Tracking below.`;
+    showToast(toastMsg);
+    _pendingOrderInfo = null;
+  }
+}
+
 function showOrderConfirmModal(placed, whatsappUrl, payMethod) {
   const code = placed.short_code || '';
   const codeEl = document.getElementById('confirmOrderCode');
   if (codeEl) codeEl.textContent = code;
 
+  // Remember for the "Done" button
+  _pendingOrderInfo = { id: placed.id, short_code: code, payMethod };
+
   const link = document.getElementById('orderConfirmWhatsAppLink');
   if (link) {
     link.href = whatsappUrl;
-    // Attach cleanup that runs the moment they tap the link
+    // On iOS we WANT to navigate the current tab (no target=_blank),
+    // because target=_blank + WhatsApp URL scheme is unreliable.
+    // On other platforms we prefer a new tab so the site stays open.
+    if (isIOS()) {
+      link.removeAttribute('target');
+    } else {
+      link.setAttribute('target', '_blank');
+    }
+    // When they tap, schedule tracker startup — but don't intercept
+    // the navigation itself. onclick fires BEFORE the anchor navigates.
     link.onclick = () => {
-      // Give iOS a beat to hand off to WhatsApp, then start tracker
-      setTimeout(() => {
-        closeOrderConfirmModal();
-        startOrderTracker(placed.id);
-        const toastMsg = payMethod === 'bank_transfer'
-          ? `Order #${code} placed — we're verifying your payment`
-          : `Order #${code} placed! Tracking below.`;
-        showToast(toastMsg);
-      }, 300);
+      // Persist tracker state now so it appears when they return
+      startOrderTracker(placed.id);
+      const toastMsg = payMethod === 'bank_transfer'
+        ? `Order #${code} placed — we're verifying your payment`
+        : `Order #${code} placed! Tracking below.`;
+      setTimeout(() => showToast(toastMsg), 400);
+      // Don't close the modal here — on iOS the current tab is
+      // navigating away, on desktop the modal stays open in the
+      // background tab. Modal auto-closes if they come back.
     };
   }
 

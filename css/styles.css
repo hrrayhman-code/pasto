@@ -2543,6 +2543,26 @@ body.pre-launch #navCart {
   height: 22px;
   color: #ffffff;
 }
+.oc-done-btn {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--charcoal);
+  border: 1.5px solid rgba(26, 26, 26, 0.2);
+  padding: 12px 20px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.oc-done-btn:hover {
+  background: var(--charcoal);
+  color: var(--cream);
+  border-color: var(--charcoal);
+}
 .whatsapp-warning {
   font-size: 12px;
   color: var(--muted);
