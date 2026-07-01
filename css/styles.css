@@ -2954,7 +2954,12 @@ body.noa-ringing {
     max-width: none;
     min-width: 0;
   }
-  .admin-notif-btn { display: none; }  /* Reduce clutter on mobile header */
+  /* Keep the notification-permission button visible on mobile too —
+     it's the whole point of using admin from the phone. */
+  .admin-notif-btn {
+    padding: 6px 10px !important;
+    font-size: 12px;
+  }
 }
 
 /* ============================================
