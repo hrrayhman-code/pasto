@@ -1498,10 +1498,7 @@ async function submitOrder() {
   // Show the order-confirmation modal with a real anchor link so
   // tapping "Send order on WhatsApp" counts as a direct user gesture.
   // (window.open() called after an await is silently blocked on iOS.)
-  const payLabel = payMethod === 'bank_transfer' ? 'Bank transfer'
-                  : payMethod === 'card'         ? 'Card / online'
-                  :                                'Cash on delivery';
-  showOrderConfirmModal(placed, url, payLabel);
+  showOrderConfirmModal(placed, url, payMethod);
 }
 
 
@@ -1513,7 +1510,7 @@ async function submitOrder() {
 // direct user gesture, which is the only reliable way to open a
 // new tab from iOS Safari.
 // ==================================================
-function showOrderConfirmModal(placed, whatsappUrl, payLabel) {
+function showOrderConfirmModal(placed, whatsappUrl, payMethod) {
   const code = placed.short_code || '';
   const codeEl = document.getElementById('confirmOrderCode');
   if (codeEl) codeEl.textContent = code;
@@ -1527,7 +1524,7 @@ function showOrderConfirmModal(placed, whatsappUrl, payLabel) {
       setTimeout(() => {
         closeOrderConfirmModal();
         startOrderTracker(placed.id);
-        const toastMsg = payLabel === 'Bank transfer'
+        const toastMsg = payMethod === 'bank_transfer'
           ? `Order #${code} placed — we're verifying your payment`
           : `Order #${code} placed! Tracking below.`;
         showToast(toastMsg);
