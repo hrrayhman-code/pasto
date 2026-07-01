@@ -406,6 +406,38 @@
     </main>
   </div>
 
+  <!-- ============================== NEW ORDER ALERT ============================== -->
+  <!-- Full-screen persistent modal that shows when a new order arrives.  -->
+  <!-- Plays a looping chime + vibration until "Acknowledge" is tapped.   -->
+  <div class="new-order-alert" id="newOrderAlert" hidden>
+    <div class="noa-card">
+      <div class="noa-ring">🔔</div>
+      <div class="noa-heading">NEW ORDER!</div>
+      <div class="noa-code">#<span id="noaCode">–</span></div>
+      <div class="noa-badge" id="noaExtraBadge" hidden>
+        +<span id="noaExtraCount">0</span> more waiting
+      </div>
+
+      <div class="noa-info">
+        <div class="noa-row"><span class="noa-label">Customer</span><span id="noaCustomer">–</span></div>
+        <div class="noa-row"><span class="noa-label">Phone</span><a id="noaPhone" href="#">–</a></div>
+        <div class="noa-row"><span class="noa-label">Address</span><span id="noaAddress">–</span></div>
+        <div class="noa-row"><span class="noa-label">Payment</span><span id="noaPayment">–</span></div>
+      </div>
+
+      <div class="noa-items" id="noaItems"></div>
+
+      <div class="noa-total-line">
+        <span>Total</span><strong id="noaTotal">Rs. 0</strong>
+      </div>
+
+      <button class="noa-ack-btn" onclick="acknowledgeNewOrder()">
+        ✓ Acknowledge · Start Cooking
+      </button>
+      <p class="noa-hint">Tap to stop the ringer and mark the order as received</p>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 

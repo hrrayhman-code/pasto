@@ -1182,23 +1182,145 @@ function subscribeToNewOrders() {
   }
 }
 
+// Queue of unacknowledged orders (in case multiple come in quickly)
+let _pendingOrderQueue = [];
+let _currentAlertOrder = null;
+let _ringerAudioInterval = null;
+let _ringerVibrateInterval = null;
+let _wakeLock = null;
+
 function handleRealtimeNewOrder(order) {
   if (!order) return;
   console.info('[Pasto Admin] 🍝 New order:', order.short_code, order.customer_name);
-  playNewOrderChime();
-  showNewOrderBrowserNotification(order);
-  showInPageOrderAlert(order);
-  // Refresh the orders list so the new one appears right away
+  _pendingOrderQueue.push(order);
   loadOrders();
+  showNewOrderBrowserNotification(order);
+  if (!_currentAlertOrder) {
+    showNextOrderAlert();
+  } else {
+    // Already ringing for a previous order — just update the badge
+    updateExtraBadge();
+  }
 }
 
-// Two-tone rising chime — cheerful, noticeable but not startling.
+function updateExtraBadge() {
+  const badge = document.getElementById('noaExtraBadge');
+  const count = document.getElementById('noaExtraCount');
+  if (!badge || !count) return;
+  if (_pendingOrderQueue.length > 0) {
+    count.textContent = _pendingOrderQueue.length;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function showNextOrderAlert() {
+  const order = _pendingOrderQueue.shift();
+  if (!order) {
+    _currentAlertOrder = null;
+    hideNewOrderAlert();
+    return;
+  }
+  _currentAlertOrder = order;
+  populateAlertModal(order);
+  document.getElementById('newOrderAlert').hidden = false;
+  document.body.classList.add('noa-ringing');
+  updateExtraBadge();
+  startRinger();
+  requestWakeLock();
+}
+
+function populateAlertModal(o) {
+  document.getElementById('noaCode').textContent = o.short_code || '–';
+  document.getElementById('noaCustomer').textContent = o.customer_name || '–';
+  const phoneEl = document.getElementById('noaPhone');
+  const phoneDigits = (o.customer_phone || '').replace(/\D/g, '');
+  phoneEl.textContent = o.customer_phone || '–';
+  phoneEl.href = phoneDigits ? `tel:${phoneDigits}` : '#';
+  document.getElementById('noaAddress').textContent = o.customer_address || '–';
+  document.getElementById('noaPayment').textContent =
+    (PAY_METHOD_LABELS && PAY_METHOD_LABELS[o.payment_method]) || o.payment_method || 'Cash on delivery';
+  document.getElementById('noaTotal').textContent = `Rs. ${o.total}`;
+
+  const itemsHTML = (o.items || []).map(it =>
+    `<div class="noa-item">
+       <span>${it.qty}× ${escapeHTML(it.name)}</span>
+       <span>Rs. ${it.price * it.qty}</span>
+     </div>`
+  ).join('');
+  document.getElementById('noaItems').innerHTML = itemsHTML || '<div class="noa-item">(No items)</div>';
+}
+
+function hideNewOrderAlert() {
+  document.getElementById('newOrderAlert').hidden = true;
+  document.body.classList.remove('noa-ringing');
+  stopRinger();
+  releaseWakeLock();
+}
+
+function acknowledgeNewOrder() {
+  const ackedCode = _currentAlertOrder?.short_code;
+  stopRinger();
+  if (_pendingOrderQueue.length > 0) {
+    showToast(`#${ackedCode} acknowledged · ${_pendingOrderQueue.length} more waiting`);
+    showNextOrderAlert();
+  } else {
+    _currentAlertOrder = null;
+    hideNewOrderAlert();
+    showToast(`Order #${ackedCode} acknowledged · get cooking! 🍝`);
+  }
+}
+
+// ----- Ringer (loops until acknowledged) -----
+function startRinger() {
+  stopRinger();
+  playNewOrderChime();
+  _ringerAudioInterval = setInterval(playNewOrderChime, 2500);
+  if (navigator.vibrate) {
+    const pattern = [400, 150, 400, 150, 400];
+    navigator.vibrate(pattern);
+    _ringerVibrateInterval = setInterval(() => {
+      try { navigator.vibrate(pattern); } catch {}
+    }, 2500);
+  }
+}
+
+function stopRinger() {
+  if (_ringerAudioInterval) { clearInterval(_ringerAudioInterval); _ringerAudioInterval = null; }
+  if (_ringerVibrateInterval) { clearInterval(_ringerVibrateInterval); _ringerVibrateInterval = null; }
+  if (navigator.vibrate) { try { navigator.vibrate(0); } catch {} }
+}
+
+// ----- Wake Lock (keeps phone screen from sleeping while ringer is active) -----
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+  } catch (err) {
+    console.warn('[Pasto Admin] Wake Lock request failed:', err);
+  }
+}
+function releaseWakeLock() {
+  if (_wakeLock) {
+    try { _wakeLock.release(); } catch {}
+    _wakeLock = null;
+  }
+}
+// Re-acquire the wake lock if the tab becomes visible again while an
+// alert is still showing (mobile OS may release it when tab is backgrounded).
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _currentAlertOrder) requestWakeLock();
+});
+
+// Loud rising 3-note chime designed to cut through background noise.
+// Called repeatedly by the ringer while an unacknowledged alert is up.
 function playNewOrderChime() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
-    // Play three notes in quick succession (A5, C#6, E6)
+    // Three notes: A5 → C#6 → E6 (major chord arpeggio, unmistakably a "chime")
     [880, 1108.73, 1318.51].forEach((freq, i) => {
       setTimeout(() => {
         const osc = ctx.createOscillator();
@@ -1208,30 +1330,16 @@ function playNewOrderChime() {
         osc.frequency.value = freq;
         osc.type = 'triangle';
         gain.gain.setValueAtTime(0.001, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
         osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.5);
-      }, i * 130);
+        osc.stop(ctx.currentTime + 0.6);
+      }, i * 140);
     });
-    // Play the whole chime twice for reliability
-    setTimeout(playNewOrderChime, 1200); return; // uncomment for double-chime
   } catch (err) {
     console.warn('[Pasto Admin] Could not play chime:', err);
   }
 }
-// Guard the double-chime: only play once (the setTimeout above is
-// commented out via early return — but keep the function idempotent)
-let _lastChimeAt = 0;
-const _origChime = playNewOrderChime;
-function _throttledChime() {
-  const now = Date.now();
-  if (now - _lastChimeAt < 3000) return;
-  _lastChimeAt = now;
-  _origChime();
-}
-// Redefine playNewOrderChime to throttled variant
-playNewOrderChime = _throttledChime;
 
 function showNewOrderBrowserNotification(order) {
   if (!('Notification' in window)) return;

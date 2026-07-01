@@ -1458,11 +1458,6 @@ async function submitOrder() {
   if (paymentProofUrl) msg += `\n*Proof:* ${paymentProofUrl}`;
   if (notes) msg += `\n\n*Notes:* ${notes}`;
 
-  // Instagram DM URL — the customer will paste their order code in the chat.
-  // (Instagram doesn't support pre-filled messages via URL like WhatsApp
-  // did, so we auto-copy the code on button tap in showOrderConfirmModal.)
-  const url = buildInstagramDmUrl(CONFIG.instagramHandle);
-
   // Remember the order id locally so the tracker survives page reloads.
   lsSet('pastoActiveOrder', {
     id: placed.id,
@@ -1495,13 +1490,9 @@ async function submitOrder() {
   _loyaltyForCheckout = null;
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
 
-  // Close checkout modal — confirm modal takes over now
+  // Close checkout modal — confirmation modal takes over now
   closeModal();
-
-  // Show the order-confirmation modal with a real anchor link so
-  // tapping "Send order on WhatsApp" counts as a direct user gesture.
-  // (window.open() called after an await is silently blocked on iOS.)
-  showOrderConfirmModal(placed, url, payMethod);
+  showOrderConfirmModal(placed, payMethod);
 }
 
 
@@ -1597,39 +1588,13 @@ function finishOrderFlow() {
   }
 }
 
-function showOrderConfirmModal(placed, instagramUrl, payMethod) {
+function showOrderConfirmModal(placed, payMethod) {
   const code = placed.short_code || '';
   const codeEl = document.getElementById('confirmOrderCode');
   if (codeEl) codeEl.textContent = code;
 
-  // Remember for the "Done" button
   _pendingOrderInfo = { id: placed.id, short_code: code, payMethod };
 
-  const link = document.getElementById('orderConfirmInstagramLink');
-  if (link) {
-    link.href = instagramUrl;
-    // On iOS use the native URL scheme WITHOUT target=_blank so the
-    // current tab navigates cleanly. On desktop / Android open in a
-    // new tab so the site stays visible.
-    if (isIOS()) {
-      link.removeAttribute('target');
-    } else {
-      link.setAttribute('target', '_blank');
-    }
-    // Merge the copy + tracker-start with whatever handleInstagramConfirm
-    // is already doing via inline onclick — we set a listener too.
-    link.addEventListener('click', function trackerOnConfirm() {
-      startOrderTracker(placed.id);
-      const toastMsg = payMethod === 'bank_transfer'
-        ? `Order #${code} saved — we're verifying your payment`
-        : `Order #${code} saved! Track it below.`;
-      setTimeout(() => showToast(toastMsg), 400);
-      // Fire once — remove listener so it doesn't stack on repeat modals
-      link.removeEventListener('click', trackerOnConfirm);
-    }, { once: true });
-  }
-
-  // Show the confirm modal
   const modal = document.getElementById('orderConfirmModal');
   const overlay = document.getElementById('overlay');
   if (modal) modal.classList.add('open');

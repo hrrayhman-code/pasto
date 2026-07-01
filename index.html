@@ -659,39 +659,21 @@
     <div class="order-confirm-check" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
-    <h2 class="modal-title">Order saved!</h2>
-    <p class="modal-sub">We already received your order — here's your code:</p>
+    <h2 class="modal-title">Order placed!</h2>
+    <p class="modal-sub">We got your order and we're getting ready to cook 🍝</p>
 
     <div class="oc-code-card">
       <div class="oc-code-label">Your order code</div>
       <div class="oc-code-value">#<span id="confirmOrderCode">–</span></div>
-      <button type="button" class="oc-copy-btn" onclick="copyOrderCode()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-        Copy code
-      </button>
     </div>
 
     <p class="oc-instructions">
-      Tap the button below — we'll copy your order code and open Instagram DM.
-      Paste the code in the chat, send it, and we'll confirm your order 🍝
+      Track your order status live below. We'll update you every step of the way — from prep to your door.
     </p>
 
-    <a href="#"
-       rel="noopener"
-       class="instagram-final-cta"
-       id="orderConfirmInstagramLink"
-       onclick="handleInstagramConfirm()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01"/></svg>
-      Message us on Instagram
-    </a>
-
-    <button type="button" class="oc-done-btn" onclick="finishOrderFlow()">
-      Done — track my order
+    <button type="button" class="oc-primary-btn" onclick="finishOrderFlow()">
+      Continue to my order tracker
     </button>
-
-    <p class="whatsapp-warning">
-      No stress — your order is safe in our system. The Instagram message is a nice-to-have. If you skip it we'll still start cooking and you can track everything below 🎉
-    </p>
   </div>
 
   <!-- ============================================== -->
