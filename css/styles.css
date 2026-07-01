@@ -2935,6 +2935,33 @@ body.noa-ringing {
 }
 .ao-close:hover { background: rgba(26,26,26,0.06); color: var(--charcoal); }
 
+/* Live status pill in admin header */
+.alert-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: rgba(26, 26, 26, 0.06);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.asp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.asp-dot.ok   { background: #2d6a3f; animation: aspPulse 1.5s infinite; }
+.asp-dot.warn { background: #d97706; }
+.asp-dot.muted { background: var(--muted); }
+@keyframes aspPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 106, 63, 0.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(45, 106, 63, 0); }
+}
+
 /* Admin header notification button */
 .admin-notif-btn {
   padding: 8px 14px !important;

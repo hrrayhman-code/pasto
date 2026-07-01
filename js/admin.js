@@ -357,13 +357,40 @@ const PREV_STATUS = {
 function setupOrdersAutoRefresh() {
   if (_ordersState.timer) { clearInterval(_ordersState.timer); _ordersState.timer = null; }
   if (_ordersState.autoRefresh) {
-    _ordersState.timer = setInterval(loadOrders, 15000);
+    // Poll every 5 seconds. Combined with the deduping seen-set, this
+    // gives us a reliable fallback for when Realtime silently fails
+    // (which is common on mobile browsers with power management).
+    _ordersState.timer = setInterval(loadOrders, 5000);
   }
 }
 
+// Track which order IDs we've already alerted for — so polling can
+// detect "new since last load" and fire the alert if Realtime is
+// broken or the tab was backgrounded.
+const _seenOrderIds = new Set();
+let _ordersFirstLoadDone = false;
+
 async function loadOrders() {
   try {
-    _ordersState.all = await OrdersAPI.listAll();
+    const orders = await OrdersAPI.listAll();
+
+    // Detect brand-new orders vs the last snapshot we saw. On the very
+    // first load we just seed the seen-set without firing alerts
+    // (otherwise every order in history would ring on page load).
+    if (_ordersFirstLoadDone) {
+      const newlyArrived = orders.filter(o => !_seenOrderIds.has(o.id));
+      newlyArrived
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .forEach(o => {
+          console.info('[Pasto Admin] Polling caught new order:', o.short_code);
+          handleRealtimeNewOrder(o);
+        });
+    }
+    orders.forEach(o => _seenOrderIds.add(o.id));
+    _ordersFirstLoadDone = true;
+    _lastPollAt = Date.now();
+
+    _ordersState.all = orders;
     renderOrdersStats();
     renderOrdersTabCounts();
     renderOrders();
@@ -1158,6 +1185,31 @@ function exportSignupsCSV() {
 
 let _orderRealtimeChannel = null;
 
+let _realtimeStatus = 'connecting';
+let _lastPollAt = null;
+
+function updateAlertStatus() {
+  const dot = document.getElementById('aspDot');
+  const text = document.getElementById('aspText');
+  if (!dot || !text) return;
+  let label, cls;
+  if (_realtimeStatus === 'SUBSCRIBED') {
+    label = 'Live · alerts on';
+    cls = 'ok';
+  } else if (_realtimeStatus === 'CHANNEL_ERROR' || _realtimeStatus === 'TIMED_OUT' || _realtimeStatus === 'CLOSED') {
+    // Polling still works — that's our fallback
+    const secs = _lastPollAt ? Math.round((Date.now() - _lastPollAt) / 1000) : null;
+    label = `Polling only (updated ${secs != null ? secs + 's' : '?'} ago)`;
+    cls = 'warn';
+  } else {
+    label = 'Connecting…';
+    cls = 'muted';
+  }
+  text.textContent = label;
+  dot.className = 'asp-dot ' + cls;
+}
+setInterval(updateAlertStatus, 2000);
+
 function subscribeToNewOrders() {
   if (_orderRealtimeChannel) return;
   try {
@@ -1176,9 +1228,13 @@ function subscribeToNewOrders() {
       })
       .subscribe((status) => {
         console.info('[Pasto Admin] Realtime status:', status);
+        _realtimeStatus = status;
+        updateAlertStatus();
       });
   } catch (err) {
     console.warn('[Pasto Admin] Could not subscribe to realtime — falling back to polling.', err);
+    _realtimeStatus = 'CHANNEL_ERROR';
+    updateAlertStatus();
   }
 }
 
@@ -1191,16 +1247,24 @@ let _wakeLock = null;
 
 function handleRealtimeNewOrder(order) {
   if (!order) return;
+  // Deduplicate — orders may reach us both via Realtime AND via the
+  // polling fallback. Only fire the alert the first time we see one.
+  if (_seenOrderIds.has(order.id)) {
+    console.info('[Pasto Admin] Skipping duplicate order:', order.short_code);
+    return;
+  }
+  _seenOrderIds.add(order.id);
   console.info('[Pasto Admin] 🍝 New order:', order.short_code, order.customer_name);
   _pendingOrderQueue.push(order);
-  loadOrders();
   showNewOrderBrowserNotification(order);
   if (!_currentAlertOrder) {
     showNextOrderAlert();
   } else {
-    // Already ringing for a previous order — just update the badge
     updateExtraBadge();
   }
+  // Refresh the list AFTER queuing the alert so the seen-set is
+  // already up to date and loadOrders() doesn't re-fire us.
+  loadOrders();
 }
 
 function updateExtraBadge() {
