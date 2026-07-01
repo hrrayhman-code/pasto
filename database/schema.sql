@@ -664,6 +664,24 @@ $$;
 grant execute on function public.track_order(uuid) to anon, authenticated;
 
 
+-- ============================================================
+-- REALTIME — push new orders to admin dashboard instantly
+-- ============================================================
+-- Adds public.orders + public.launch_signups to the realtime
+-- publication so admin.html can subscribe to inserts and play
+-- a sound / show a notification the moment they land.
+do $$ begin
+  begin
+    execute 'alter publication supabase_realtime add table public.orders';
+  exception when duplicate_object then null; when others then null;
+  end;
+  begin
+    execute 'alter publication supabase_realtime add table public.launch_signups';
+  exception when duplicate_object then null; when others then null;
+  end;
+end $$;
+
+
 -- Seed default site settings for bank account if missing
 insert into public.site_settings (key, value) values
   ('bank_name',         ''),

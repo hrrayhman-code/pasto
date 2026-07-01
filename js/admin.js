@@ -165,6 +165,9 @@ function showDashboard(session) {
   loadBankSettings();
   loadLaunchSignups();
   setupOrdersAutoRefresh();
+  // Realtime push: get sound + notification the moment an order comes in
+  subscribeToNewOrders();
+  updateNotifPermUI();
 }
 
 async function adminSignOut() {
@@ -1142,6 +1145,181 @@ function exportSignupsCSV() {
   URL.revokeObjectURL(url);
   showToast('CSV downloaded');
 }
+
+// ==================================================
+// REALTIME ORDER NOTIFICATIONS
+// ==================================================
+// When a customer places an order (regardless of whether their
+// WhatsApp goes through), Supabase pushes a Postgres INSERT event
+// here. We play a sound, show a browser notification, and refresh
+// the orders list — so the owner never misses an order even if the
+// customer's WhatsApp step fails.
+// ==================================================
+
+let _orderRealtimeChannel = null;
+
+function subscribeToNewOrders() {
+  if (_orderRealtimeChannel) return;
+  try {
+    _orderRealtimeChannel = sb
+      .channel('admin-new-orders')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'orders'
+      }, (payload) => {
+        try {
+          handleRealtimeNewOrder(payload.new);
+        } catch (err) {
+          console.error('[Pasto Admin] Failed to handle new order:', err);
+        }
+      })
+      .subscribe((status) => {
+        console.info('[Pasto Admin] Realtime status:', status);
+      });
+  } catch (err) {
+    console.warn('[Pasto Admin] Could not subscribe to realtime — falling back to polling.', err);
+  }
+}
+
+function handleRealtimeNewOrder(order) {
+  if (!order) return;
+  console.info('[Pasto Admin] 🍝 New order:', order.short_code, order.customer_name);
+  playNewOrderChime();
+  showNewOrderBrowserNotification(order);
+  showInPageOrderAlert(order);
+  // Refresh the orders list so the new one appears right away
+  loadOrders();
+}
+
+// Two-tone rising chime — cheerful, noticeable but not startling.
+function playNewOrderChime() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    // Play three notes in quick succession (A5, C#6, E6)
+    [880, 1108.73, 1318.51].forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      }, i * 130);
+    });
+    // Play the whole chime twice for reliability
+    setTimeout(playNewOrderChime, 1200); return; // uncomment for double-chime
+  } catch (err) {
+    console.warn('[Pasto Admin] Could not play chime:', err);
+  }
+}
+// Guard the double-chime: only play once (the setTimeout above is
+// commented out via early return — but keep the function idempotent)
+let _lastChimeAt = 0;
+const _origChime = playNewOrderChime;
+function _throttledChime() {
+  const now = Date.now();
+  if (now - _lastChimeAt < 3000) return;
+  _lastChimeAt = now;
+  _origChime();
+}
+// Redefine playNewOrderChime to throttled variant
+playNewOrderChime = _throttledChime;
+
+function showNewOrderBrowserNotification(order) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    const notif = new Notification('🍝 New Pasto order!', {
+      body: `${order.customer_name} · #${order.short_code} · Rs. ${order.total}`,
+      icon: 'assets/logo-icon.png',
+      badge: 'assets/logo-icon.png',
+      tag: 'new-order-' + order.id,
+      requireInteraction: true
+    });
+    notif.onclick = () => { window.focus(); notif.close(); };
+  } catch (err) {
+    console.warn('[Pasto Admin] Notification API failed:', err);
+  }
+}
+
+// Sticky in-page banner shown at the top of admin — impossible to miss.
+function showInPageOrderAlert(order) {
+  const wrap = document.createElement('div');
+  wrap.className = 'admin-new-order-alert';
+  wrap.innerHTML = `
+    <div class="ao-icon">🍝</div>
+    <div class="ao-body">
+      <div class="ao-title">New order · #${escapeHTML(order.short_code)}</div>
+      <div class="ao-meta">${escapeHTML(order.customer_name)} · Rs. ${order.total} · ${escapeHTML(order.payment_method || 'cod')}</div>
+    </div>
+    <button class="ao-close" aria-label="Dismiss">✕</button>
+  `;
+  wrap.querySelector('.ao-close').addEventListener('click', () => wrap.remove());
+  document.body.appendChild(wrap);
+  // Auto-dismiss after 20 seconds
+  setTimeout(() => wrap.remove(), 20000);
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) {
+    showToast('Your browser does not support notifications');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    showToast('Notifications already enabled');
+    updateNotifPermUI();
+    return;
+  }
+  try {
+    const result = await Notification.requestPermission();
+    if (result === 'granted') {
+      showToast('Notifications enabled — you\'ll hear a chime for new orders');
+      // Fire a test notification so they know it works
+      new Notification('🍝 Pasto notifications enabled', {
+        body: 'You\'ll be alerted the moment an order comes in.',
+        icon: 'assets/logo-icon.png'
+      });
+      playNewOrderChime();
+    } else {
+      showToast('Notifications blocked — enable in your browser settings');
+    }
+    updateNotifPermUI();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function updateNotifPermUI() {
+  const btn = document.getElementById('enableNotifBtn');
+  if (!btn) return;
+  if (!('Notification' in window)) {
+    btn.hidden = true;
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    btn.textContent = '🔔 Notifications on';
+    btn.classList.add('notif-on');
+    btn.disabled = false;
+  } else if (perm === 'denied') {
+    btn.textContent = '🔕 Notifications blocked';
+    btn.classList.remove('notif-on');
+    btn.disabled = true;
+  } else {
+    btn.textContent = '🔔 Enable order alerts';
+    btn.classList.remove('notif-on');
+    btn.disabled = false;
+  }
+}
+
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootstrap);

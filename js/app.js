@@ -1459,7 +1459,6 @@ async function submitOrder() {
   if (notes) msg += `\n\n*Notes:* ${notes}`;
 
   const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
-  window.open(url, '_blank');
 
   // Remember the order id locally so the tracker survives page reloads.
   lsSet('pastoActiveOrder', {
@@ -1469,21 +1468,12 @@ async function submitOrder() {
     placedAt: Date.now()
   });
 
-  // Clear cart
+  // Clear cart + form state
   cart = {};
   saveCart();
   renderCart();
   updateCartCount();
   updateAllMenuCardControls();
-  closeModal();
-  const toastMsg = payMethod === 'bank_transfer'
-    ? `Order #${placed.short_code} placed — we're verifying your payment.`
-    : payMethod === 'card'
-      ? `Order #${placed.short_code} placed — check WhatsApp for payment link.`
-      : `Order #${placed.short_code} placed! Tracking below.`;
-  showToast(toastMsg);
-
-  // Clear form fields and coupon state
   ['custName', 'custPhone', 'custAddress', 'custNotes', 'custCoupon'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -1502,8 +1492,70 @@ async function submitOrder() {
   _loyaltyForCheckout = null;
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send to WhatsApp'; }
 
-  // Start the live tracker
-  startOrderTracker(placed.id);
+  // Close checkout modal — confirm modal takes over now
+  closeModal();
+
+  // Show the order-confirmation modal with a real anchor link so
+  // tapping "Send order on WhatsApp" counts as a direct user gesture.
+  // (window.open() called after an await is silently blocked on iOS.)
+  const payLabel = payMethod === 'bank_transfer' ? 'Bank transfer'
+                  : payMethod === 'card'         ? 'Card / online'
+                  :                                'Cash on delivery';
+  showOrderConfirmModal(placed, url, payLabel);
+}
+
+
+// ==================================================
+// ORDER CONFIRMATION MODAL (post-save)
+// ==================================================
+// Shown AFTER an order is saved to Supabase. Its "Send order on
+// WhatsApp" button is a real <a> tag — tapping it counts as a
+// direct user gesture, which is the only reliable way to open a
+// new tab from iOS Safari.
+// ==================================================
+function showOrderConfirmModal(placed, whatsappUrl, payLabel) {
+  const code = placed.short_code || '';
+  const codeEl = document.getElementById('confirmOrderCode');
+  if (codeEl) codeEl.textContent = code;
+
+  const link = document.getElementById('orderConfirmWhatsAppLink');
+  if (link) {
+    link.href = whatsappUrl;
+    // Attach cleanup that runs the moment they tap the link
+    link.onclick = () => {
+      // Give iOS a beat to hand off to WhatsApp, then start tracker
+      setTimeout(() => {
+        closeOrderConfirmModal();
+        startOrderTracker(placed.id);
+        const toastMsg = payLabel === 'Bank transfer'
+          ? `Order #${code} placed — we're verifying your payment`
+          : `Order #${code} placed! Tracking below.`;
+        showToast(toastMsg);
+      }, 300);
+    };
+  }
+
+  // Show the confirm modal
+  const modal = document.getElementById('orderConfirmModal');
+  const overlay = document.getElementById('overlay');
+  if (modal) modal.classList.add('open');
+  if (overlay) overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOrderConfirmModal() {
+  const modal = document.getElementById('orderConfirmModal');
+  const overlay = document.getElementById('overlay');
+  if (modal) modal.classList.remove('open');
+  if (overlay) overlay.classList.remove('show');
+  document.body.style.overflow = '';
+
+  // Belt and braces — if the customer closed via overlay without tapping,
+  // still start the tracker for whatever order is saved locally.
+  const active = lsGet('pastoActiveOrder', null);
+  if (active && active.id && !_trackerOrderId) {
+    startOrderTracker(active.id);
+  }
 }
 
 

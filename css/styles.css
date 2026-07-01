@@ -2460,6 +2460,157 @@ body.pre-launch #navCart {
 }
 
 /* ============================================
+   ORDER CONFIRMATION MODAL
+   (post-save WhatsApp handoff — iOS friendly)
+   ============================================ */
+.order-confirm-modal { text-align: center; }
+.order-confirm-check {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #2d6a3f;
+  color: var(--cream);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  animation: checkPop 0.5s cubic-bezier(.2,.8,.2,1.4);
+}
+.order-confirm-check svg { width: 32px; height: 32px; }
+@keyframes checkPop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.order-confirm-modal .modal-title em {
+  color: var(--red);
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+.order-confirm-modal .modal-sub {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.oc-emphasis {
+  color: var(--red);
+  font-weight: 700;
+}
+.whatsapp-final-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: #25D366;    /* WhatsApp green */
+  color: #ffffff;
+  padding: 18px 24px;
+  border-radius: 100px;
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  margin-top: 20px;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  box-shadow: 0 8px 24px -8px rgba(37, 211, 102, 0.4);
+}
+.whatsapp-final-cta:hover {
+  background: #128C7E;
+  transform: scale(1.02);
+  box-shadow: 0 12px 32px -8px rgba(37, 211, 102, 0.5);
+}
+.whatsapp-final-cta svg {
+  width: 22px;
+  height: 22px;
+  color: #ffffff;
+}
+.whatsapp-warning {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 14px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ============================================
+   ADMIN — NEW ORDER REAL-TIME ALERT
+   ============================================ */
+.admin-new-order-alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  background: var(--cream);
+  border: 2px solid #2d6a3f;
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 20px 60px -10px rgba(45,106,63,0.4);
+  animation: newOrderSlideIn 0.5s cubic-bezier(.2,.8,.2,1.4);
+}
+@keyframes newOrderSlideIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.ao-icon {
+  font-size: 32px;
+  animation: aoPulse 1s ease-in-out infinite;
+}
+@keyframes aoPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+.ao-body { flex: 1; min-width: 0; }
+.ao-title {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--charcoal);
+  letter-spacing: -0.01em;
+}
+.ao-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ao-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 50%;
+}
+.ao-close:hover { background: rgba(26,26,26,0.06); color: var(--charcoal); }
+
+/* Admin header notification button */
+.admin-notif-btn {
+  padding: 8px 14px !important;
+  font-size: 13px;
+}
+.admin-notif-btn.notif-on {
+  background: #2d6a3f !important;
+  color: var(--cream) !important;
+  border-color: #2d6a3f !important;
+}
+
+@media (max-width: 600px) {
+  .admin-new-order-alert {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    min-width: 0;
+  }
+  .admin-notif-btn { display: none; }  /* Reduce clutter on mobile header */
+}
+
+/* ============================================
    PAYMENT METHOD PICKER (in checkout modal)
    ============================================ */
 .pay-picker {
