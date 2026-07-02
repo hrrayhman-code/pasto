@@ -22,7 +22,7 @@ select cron.unschedule('push-order-alerts-sweep')
 
 select cron.schedule('push-order-alerts-sweep', '*/2 * * * *', $$
   select net.http_post(
-    url     := 'https://<project-ref>.functions.supabase.co/push-order-alerts',
+    url     := 'https://<project-ref>.supabase.co/functions/v1/push-order-alerts',
     headers := jsonb_build_object('Content-Type','application/json','x-alert-secret','<YOUR_SECRET>'),
     body    := '{}'::jsonb
   );
