@@ -25,7 +25,7 @@ const SUPABASE = {
 // The public VAPID key is safe to expose in client code.
 // Generate the keypair once with:  npx web-push generate-vapid-keys
 // Paste the *Public Key* here; the *Private Key* becomes an Edge Function secret.
-const VAPID_PUBLIC_KEY = 'PASTE_YOUR_VAPID_PUBLIC_KEY_HERE';
+const VAPID_PUBLIC_KEY = 'BNetH5RXTrZ8m3cjKwJa-sdW5-IaihqSbil5u07u1GVwpI75XqXZq0gpDDbjaBbHjkCCeW3BA6UH-b2KI2tS2dM';
 
 
 const CONFIG = {
