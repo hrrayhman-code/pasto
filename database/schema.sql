@@ -685,85 +685,51 @@ grant execute on function public.track_order(uuid) to anon, authenticated;
 
 
 -- ============================================================
--- TELEGRAM NEW-ORDER NOTIFICATIONS
+-- WEB PUSH — owner PWA order alerts (replaces Telegram; Spec #1)
 -- ============================================================
--- Sends a Telegram push notification the moment an order lands.
--- Reliable on iOS (native Telegram app pushes work when phone is
--- locked). Uses Supabase's pg_net extension to POST to Telegram's
--- HTTP API from inside a Postgres trigger.
---
--- SETUP (one-time):
---   1. Create a bot via @BotFather in Telegram, copy the token
---   2. Message @userinfobot to get your chat ID (a number)
---   3. Replace the two placeholders below and run this file
--- ============================================================
+-- pg_net stays (used by the pg_cron re-alert sweep in
+-- database/cron-push-alerts.sql).
 create extension if not exists pg_net with schema extensions;
 
--- Store secrets in site_settings so we don't hardcode them in the
--- function body. Update these two rows with your actual values.
-insert into public.site_settings (key, value) values
-  ('telegram_bot_token', 'PASTE_YOUR_BOT_TOKEN_HERE'),
-  ('telegram_chat_id',   'PASTE_YOUR_CHAT_ID_HERE')
-on conflict (key) do nothing;
+-- One row per installed admin device.
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  user_id    uuid not null default auth.uid(),
+  label      text,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "own_push_subs" on public.push_subscriptions;
+-- Only the logged-in admin manages their own device subscriptions; anon has none.
+create policy "own_push_subs" on public.push_subscriptions for all
+  to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create or replace function public.notify_telegram_on_new_order()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, extensions
-as $$
-declare
-  v_token   text;
-  v_chat    text;
-  v_msg     text;
-  v_items   text := '';
-  v_it      jsonb;
+-- Acknowledgement state on orders (drives the re-alert loop).
+alter table public.orders add column if not exists alert_acked boolean not null default false;
+alter table public.orders add column if not exists acked_at   timestamptz;
+
+-- Auto-acknowledge when the owner advances an order off 'received'.
+create or replace function public.ack_alert_on_status_change()
+returns trigger language plpgsql as $$
 begin
-  select value into v_token from public.site_settings where key = 'telegram_bot_token';
-  select value into v_chat  from public.site_settings where key = 'telegram_chat_id';
-
-  -- Skip if not configured yet
-  if v_token is null or v_token = '' or v_token like 'PASTE_%' then return NEW; end if;
-  if v_chat  is null or v_chat  = '' or v_chat  like 'PASTE_%' then return NEW; end if;
-
-  -- Build a bulleted item list
-  for v_it in select value from jsonb_array_elements(NEW.items) loop
-    v_items := v_items || E'\n• ' || (v_it->>'qty') || '× ' || (v_it->>'name')
-             || ' — Rs. ' || (((v_it->>'qty')::int) * ((v_it->>'price')::int))::text;
-  end loop;
-
-  v_msg :=
-    E'🍝 *NEW ORDER!*' || E'\n\n' ||
-    E'*Code:* #' || NEW.short_code || E'\n' ||
-    E'*Customer:* ' || NEW.customer_name || E'\n' ||
-    E'*Phone:* ' || NEW.customer_phone || E'\n' ||
-    E'*Address:* ' || NEW.customer_address || E'\n' ||
-    E'*Payment:* ' || NEW.payment_method || E'\n' ||
-    E'*Items:*' || v_items || E'\n' ||
-    E'*Total:* Rs. ' || NEW.total ||
-    case when NEW.notes is not null and NEW.notes <> ''
-      then E'\n\n*Notes:* ' || NEW.notes else '' end;
-
-  perform extensions.http_post(
-    url := 'https://api.telegram.org/bot' || v_token || '/sendMessage',
-    body := jsonb_build_object(
-      'chat_id',    v_chat,
-      'text',       v_msg,
-      'parse_mode', 'Markdown'
-    )
-  );
-
+  if OLD.status = 'received' and NEW.status is distinct from 'received'
+     and NEW.alert_acked = false then
+    NEW.alert_acked := true;
+    NEW.acked_at := now();
+  end if;
   return NEW;
-exception when others then
-  -- Never block the order insert on a Telegram failure
-  return NEW;
-end;
-$$;
+end; $$;
+drop trigger if exists trg_ack_on_status on public.orders;
+create trigger trg_ack_on_status before update of status on public.orders
+  for each row execute function public.ack_alert_on_status_change();
 
+-- Remove the old Telegram path entirely (Critical #1 surface deleted, not patched).
 drop trigger if exists trg_notify_telegram_on_order on public.orders;
-create trigger trg_notify_telegram_on_order
-  after insert on public.orders
-  for each row execute function public.notify_telegram_on_new_order();
+drop function if exists public.notify_telegram_on_new_order();
+delete from public.site_settings where key in ('telegram_bot_token','telegram_chat_id');
 
 
 -- ============================================================

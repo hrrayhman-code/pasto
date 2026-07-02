@@ -168,6 +168,22 @@ function showDashboard(session) {
   // Realtime push: get sound + notification the moment an order comes in
   subscribeToNewOrders();
   updateNotifPermUI();
+
+  // PWA web push: re-subscribe on every launch (subscriptions can rotate) — Spec #1.
+  if ('Notification' in window && Notification.permission === 'granted') {
+    ensurePushSubscription().catch(e => console.warn('[Pasto Admin] push resubscribe:', e));
+  }
+  // Deep link from a tapped push notification: /admin?order=<id>
+  const _deepOrderId = new URLSearchParams(location.search).get('order');
+  if (_deepOrderId) {
+    OrdersAPI.acknowledgeAlert(_deepOrderId).catch(() => {});
+    document.querySelector('.admin-section-tab[data-section="orders"]')?.click();
+    loadOrders().then(() => {
+      const row = document.querySelector(`.order-row[data-id="${_deepOrderId}"]`);
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    history.replaceState({}, '', '/admin');
+  }
 }
 
 async function adminSignOut() {
@@ -1336,8 +1352,10 @@ function hideNewOrderAlert() {
 }
 
 function acknowledgeNewOrder() {
+  const ackedId   = _currentAlertOrder?.id;
   const ackedCode = _currentAlertOrder?.short_code;
   stopRinger();
+  if (ackedId) OrdersAPI.acknowledgeAlert(ackedId).catch(() => {});   // stop the re-alert loop
   if (_pendingOrderQueue.length > 0) {
     showToast(`#${ackedCode} acknowledged · ${_pendingOrderQueue.length} more waiting`);
     showNextOrderAlert();
@@ -1473,6 +1491,35 @@ function fireTestAlert() {
   handleRealtimeNewOrder(fake);
 }
 
+// ----- Web Push subscription (Spec #1) -----
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function ensurePushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  if (typeof VAPID_PUBLIC_KEY !== 'string' || VAPID_PUBLIC_KEY.includes('PASTE_')) {
+    console.warn('[Pasto Admin] VAPID_PUBLIC_KEY not set in js/config.js');
+    return null;
+  }
+  const reg = await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+  }
+  await PushAPI.saveSubscription(sub);   // re-save on every launch
+  return sub;
+}
+
 async function requestNotifPermission() {
   if (!('Notification' in window)) {
     showToast('Your browser does not support notifications');
@@ -1493,6 +1540,7 @@ async function requestNotifPermission() {
         icon: 'assets/logo-icon.png'
       });
       playNewOrderChime();
+      await ensurePushSubscription();   // subscribe this device to web push
     } else {
       showToast('Notifications blocked — enable in your browser settings');
     }

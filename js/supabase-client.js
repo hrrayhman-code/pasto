@@ -191,6 +191,12 @@ const OrdersAPI = {
     const { error } = await sb.from('orders').update({ status }).eq('id', id);
     if (error) throw error;
   },
+  async acknowledgeAlert(id) {
+    const { error } = await sb.from('orders')
+      .update({ alert_acked: true, acked_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  },
   async remove(id) {
     const { error } = await sb.from('orders').delete().eq('id', id);
     if (error) throw error;
@@ -327,6 +333,26 @@ const SettingsAPI = {
     if (error) throw error;
     const { data: urlData } = sb.storage.from('site-images').getPublicUrl(path);
     return urlData.publicUrl;
+  }
+};
+
+
+// ==================================================
+// PUSH SUBSCRIPTIONS API  (admin PWA web-push order alerts)
+// ==================================================
+const PushAPI = {
+  async saveSubscription(pushSub) {
+    const j = pushSub.toJSON();
+    if (!j.endpoint || !j.keys) throw new Error('Invalid push subscription');
+    const { error } = await sb.from('push_subscriptions').upsert(
+      { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+      { onConflict: 'endpoint' }
+    );
+    if (error) throw error;
+  },
+  async removeSubscription(endpoint) {
+    const { error } = await sb.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    if (error) throw error;
   }
 };
 

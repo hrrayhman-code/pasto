@@ -266,7 +266,7 @@ if (oid) {
   history.replaceState({}, '', '/admin');
 }
 ```
-Order rows don't yet carry `data-order-id` — add it in `renderOrderRow` (`admin.js:467`): `<article class="admin-row ..." data-order-id="${escapeHTML(o.id)}">`.
+Order rows already carry `data-id="${o.id}"` on `<article class="admin-row order-row ...">` (`admin.js:501`), so the scroll targets `.order-row[data-id="..."]` — no new attribute needed.
 - [ ] **Step 6: Verify** `node --check js/admin.js` → OK.
 - [ ] **Step 7: Commit** `js/admin.js`.
 
@@ -357,7 +357,7 @@ Expected: a JSON `{ "sent": N }` and, if a new un-acked order exists, a notifica
 **Files:** Modify `database/schema.sql` (append; requires the function URL + secret, so it comes after Task 6).
 
 - [ ] **Step 1: Enable extensions** (Supabase → Database → Extensions): enable **pg_cron** and **pg_net** (pg_net already used by the old Telegram code).
-- [ ] **Step 2: Add the cron SQL** (append to `schema.sql`, filling in the real URL + secret):
+- [ ] **Step 2: Add the cron SQL.** Implemented as a **separate file** `database/cron-push-alerts.sql` (kept out of `schema.sql` so `schema.sql` stays runnable without project-specific values). Fill in the real URL + secret, then run it in the SQL Editor:
 ```sql
 -- Re-alert un-acknowledged new orders every 2 min (20-min window enforced in the function)
 select cron.unschedule('push-order-alerts-sweep')

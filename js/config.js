@@ -19,6 +19,14 @@ const SUPABASE = {
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Z2ZxbGZncWhja3FsanJ1ZnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Mjk1MDQsImV4cCI6MjA5NTMwNTUwNH0.hk10kNbhu0HE9Buu-9HmY1EXxI3PRHy76VzqF-ZRqhA'
 };
 
+// ==================================================
+// WEB PUSH — owner PWA order alerts (Spec #1)
+// ==================================================
+// The public VAPID key is safe to expose in client code.
+// Generate the keypair once with:  npx web-push generate-vapid-keys
+// Paste the *Public Key* here; the *Private Key* becomes an Edge Function secret.
+const VAPID_PUBLIC_KEY = 'PASTE_YOUR_VAPID_PUBLIC_KEY_HERE';
+
 
 const CONFIG = {
 
