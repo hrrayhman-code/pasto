@@ -3,7 +3,5 @@
 
 User-agent: *
 Allow: /
-Disallow: /admin.html
-Disallow: /database/
 
 Sitemap: https://www.pastobyaiman.com/sitemap.xml

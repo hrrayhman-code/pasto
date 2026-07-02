@@ -1,0 +1,6 @@
+# Keep server/design docs and the DB schema out of the public deploy (Finding 10).
+database/
+docs/
+SUPABASE_SETUP.md
+README.md
+CLAUDE.md

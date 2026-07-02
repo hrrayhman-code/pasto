@@ -321,7 +321,7 @@ begin
         owner_phone, active, min_order_total
       ) values (
         v_referral_code, 'referral',
-        '10% off — referred by ' || coalesce(v_customer_name, NEW.customer_name),
+        '10% off — referral reward',   -- no customer name (leaked via validate_coupon; Finding 7)
         'percent', 10,
         NEW.customer_phone, true, 0
       )
@@ -404,9 +404,18 @@ alter table public.site_settings enable row level security;
 drop policy if exists "public_read_settings" on public.site_settings;
 drop policy if exists "auth_settings_all"    on public.site_settings;
 
+-- Whitelist non-secret keys only. Secret rows (telegram_bot_token,
+-- telegram_chat_id) are deliberately excluded so anon cannot read them;
+-- the admin still sees everything via auth_settings_all below.
 create policy "public_read_settings"
   on public.site_settings for select
-  to anon, authenticated using (true);
+  to anon, authenticated
+  using (key in (
+    'bank_name','bank_account_title','bank_account_number','bank_iban',
+    'bank_branch_code','payment_card_note',
+    'kitchen_lat','kitchen_lng','delivery_radius_km','delivery_fee',
+    'hero_image_url'
+  ));
 
 create policy "auth_settings_all"
   on public.site_settings for all
@@ -484,6 +493,12 @@ alter table public.orders
 insert into storage.buckets (id, name, public)
   values ('payment-proofs', 'payment-proofs', true) on conflict (id) do nothing;
 
+-- Constrain uploads: images only, 5 MB cap (Finding 9).
+update storage.buckets
+   set file_size_limit = 5242880,
+       allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic']
+ where id = 'payment-proofs';
+
 drop policy if exists "anon_write_payment_proofs" on storage.objects;
 drop policy if exists "public_read_payment_proofs" on storage.objects;
 drop policy if exists "auth_all_payment_proofs"    on storage.objects;
@@ -493,10 +508,10 @@ create policy "anon_write_payment_proofs"
   to anon, authenticated
   with check (bucket_id = 'payment-proofs');
 
-create policy "public_read_payment_proofs"
-  on storage.objects for select
-  to anon, authenticated
-  using (bucket_id = 'payment-proofs');
+-- NOTE: no anon SELECT policy on payment-proofs (Finding 2). Anon can upload
+-- but cannot list/enumerate others' screenshots. Admin reads them via
+-- auth_all_payment_proofs. (Full hardening — private bucket + signed URLs —
+-- is Task 9 in the remediation plan.)
 
 create policy "auth_all_payment_proofs"
   on storage.objects for all
@@ -578,6 +593,11 @@ begin
 
   -- Coupon
   if p_coupon_code is not null and length(trim(p_coupon_code)) > 0 then
+    -- Lock the coupon row so concurrent orders can't exceed max_uses (Finding 16).
+    perform 1 from public.coupons
+      where upper(code) = upper(p_coupon_code)
+        and (max_uses is null or used_count < max_uses)
+      for update;
     select computed_discount, code into v_coupon_disc, v_coupon
       from public.validate_coupon(p_coupon_code, p_total, p_phone)
       where ok = true;
