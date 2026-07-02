@@ -1,6 +1,8 @@
-# Keep server/design docs and the DB schema out of the public deploy (Finding 10).
+# Keep server/design docs, the DB schema, and the Edge Function source out of
+# the public static deploy (Finding 10).
 database/
 docs/
+supabase/
 SUPABASE_SETUP.md
 README.md
 CLAUDE.md
