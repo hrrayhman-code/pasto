@@ -466,7 +466,7 @@ function renderOrders() {
 
 function renderOrderRow(o) {
   const itemsHTML = (o.items || []).map(it =>
-    `<li>${it.qty}× ${escapeHTML(it.name)} <span class="ord-item-price">Rs. ${it.price * it.qty}</span></li>`
+    `<li>${Number(it.qty) || 0}× ${escapeHTML(it.name)} <span class="ord-item-price">Rs. ${(Number(it.price) || 0) * (Number(it.qty) || 0)}</span></li>`
   ).join('');
 
   const next = NEXT_STATUS[o.status];
@@ -1083,13 +1083,14 @@ function renderLaunchList() {
         </div>
       </div>
       <div class="admin-row-actions">
-        <button class="admin-action approve" onclick="whatsappOneSignup('${escapeHTML(s.phone)}', '${escapeHTML((s.name||'').replace(/'/g,"\\'"))}', '${s.id}')">
+        <button class="admin-action approve" data-signup-action="whatsapp"
+          data-id="${escapeHTML(s.id)}" data-phone="${escapeHTML(s.phone)}" data-name="${escapeHTML(s.name || '')}">
           📱 WhatsApp & mark notified
         </button>
         ${s.notified ? `
-          <button class="admin-action secondary" onclick="toggleSignupNotified('${s.id}', false)">Mark pending</button>
+          <button class="admin-action secondary" data-signup-action="pending" data-id="${escapeHTML(s.id)}">Mark pending</button>
         ` : ''}
-        <button class="admin-action danger" onclick="deleteSignup('${s.id}')">Delete</button>
+        <button class="admin-action danger" data-signup-action="delete" data-id="${escapeHTML(s.id)}">Delete</button>
       </div>
     </article>
   `).join('');
@@ -1097,6 +1098,17 @@ function renderLaunchList() {
 
 document.addEventListener('input', (e) => {
   if (e.target && e.target.id === 'adminLaunchSearch') renderLaunchList();
+});
+
+// Delegated handler for launch-signup row actions. Data lives in double-quoted
+// data-* attributes (escapeHTML-safe) — never inline onclick JS strings (Finding 6).
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-signup-action]');
+  if (!btn) return;
+  const { signupAction, id, phone, name } = btn.dataset;
+  if (signupAction === 'whatsapp') whatsappOneSignup(phone || '', name || '', id);
+  else if (signupAction === 'pending') toggleSignupNotified(id, false);
+  else if (signupAction === 'delete') deleteSignup(id);
 });
 
 function whatsappOneSignup(phone, name, id) {
@@ -1309,8 +1321,8 @@ function populateAlertModal(o) {
 
   const itemsHTML = (o.items || []).map(it =>
     `<div class="noa-item">
-       <span>${it.qty}× ${escapeHTML(it.name)}</span>
-       <span>Rs. ${it.price * it.qty}</span>
+       <span>${Number(it.qty) || 0}× ${escapeHTML(it.name)}</span>
+       <span>Rs. ${(Number(it.price) || 0) * (Number(it.qty) || 0)}</span>
      </div>`
   ).join('');
   document.getElementById('noaItems').innerHTML = itemsHTML || '<div class="noa-item">(No items)</div>';

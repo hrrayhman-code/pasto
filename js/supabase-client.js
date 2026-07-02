@@ -152,9 +152,9 @@ const OrdersAPI = {
   // ---------- Public: upload payment proof screenshot ----------
   async uploadPaymentProof(file) {
     if (!file) throw new Error('No file');
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const rand = Math.random().toString(36).slice(2, 10);
-    const path = `${Date.now()}-${rand}.${ext}`;
+    // Unguessable object name (Finding 2): crypto UUID, not Date.now()+Math.random().
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const path = `${crypto.randomUUID()}.${ext || 'jpg'}`;
     const { error } = await sb.storage
       .from('payment-proofs')
       .upload(path, file, { cacheControl: '3600', upsert: false });

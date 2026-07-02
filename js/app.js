@@ -27,15 +27,16 @@ let cart = JSON.parse(localStorage.getItem('pastoCart') || '{}');
 function dishVisual(item, size = 'large') {
   // If a photo URL is provided in config, use it
   if (item.imageUrl) {
-    return `<img src="${item.imageUrl}" alt="${item.name}" loading="lazy">`;
+    return `<img src="${escapeHTML(item.imageUrl)}" alt="${escapeHTML(item.name)}" loading="lazy">`;
   }
 
-  // Otherwise, return the illustrated icon
-  const c = item.accentColor;
+  // Otherwise, return the illustrated icon. Validate DB-sourced colors (Finding 14).
+  const c = hexOr(item.accentColor, '#E63946');
+  const ic = hexOr(item.iconColor, '#FFF8F0');
 
   if (item.id === 'alfredo' || item.id === 'pink' || item.id === 'green') {
     return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="50" cy="50" r="42" fill="${item.iconColor}" stroke="#1A1A1A" stroke-width="1.5"/>
+      <circle cx="50" cy="50" r="42" fill="${ic}" stroke="#1A1A1A" stroke-width="1.5"/>
       <ellipse cx="50" cy="50" rx="34" ry="10" fill="${c}" opacity="0.2"/>
       <g stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round">
         <path d="M 22 48 Q 38 42 50 48 Q 62 54 78 48"/>
@@ -49,7 +50,7 @@ function dishVisual(item, size = 'large') {
 
   if (item.id === 'garlic') {
     return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <rect x="18" y="38" width="64" height="24" rx="4" fill="${item.iconColor}" stroke="#1A1A1A" stroke-width="1.5"/>
+      <rect x="18" y="38" width="64" height="24" rx="4" fill="${ic}" stroke="#1A1A1A" stroke-width="1.5"/>
       <line x1="34" y1="38" x2="34" y2="62" stroke="#1A1A1A" stroke-width="1"/>
       <line x1="50" y1="38" x2="50" y2="62" stroke="#1A1A1A" stroke-width="1"/>
       <line x1="66" y1="38" x2="66" y2="62" stroke="#1A1A1A" stroke-width="1"/>
@@ -64,7 +65,7 @@ function dishVisual(item, size = 'large') {
 
   if (item.id === 'sausage') {
     return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <rect x="22" y="40" width="56" height="20" rx="3" fill="${item.iconColor}" stroke="#1A1A1A" stroke-width="1.5"/>
+      <rect x="22" y="40" width="56" height="20" rx="3" fill="${ic}" stroke="#1A1A1A" stroke-width="1.5"/>
       <g fill="#d97706">
         <ellipse cx="35" cy="45" rx="6" ry="2.5" transform="rotate(-10 35 45)"/>
         <ellipse cx="50" cy="48" rx="6" ry="2.5" transform="rotate(15 50 48)"/>
@@ -84,8 +85,8 @@ function dishVisual(item, size = 'large') {
 
   // Fallback for any new item without a custom icon
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="42" fill="${item.iconColor || '#FFF8F0'}" stroke="#1A1A1A" stroke-width="1.5"/>
-    <text x="50" y="58" text-anchor="middle" font-family="Fraunces, serif" font-size="32" font-weight="500" fill="${c || '#E63946'}">P</text>
+    <circle cx="50" cy="50" r="42" fill="${ic}" stroke="#1A1A1A" stroke-width="1.5"/>
+    <text x="50" y="58" text-anchor="middle" font-family="Fraunces, serif" font-size="32" font-weight="500" fill="${c}">P</text>
   </svg>`;
 }
 
@@ -130,13 +131,13 @@ function updateAllMenuCardControls() {
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
   grid.innerHTML = MENU.map(item => `
-    <div class="menu-card reveal" data-id="${item.id}">
+    <div class="menu-card reveal" data-id="${escapeHTML(item.id)}">
       <div class="menu-card-visual">
-        <span class="menu-card-tag ${item.tag}">${item.tagLabel}</span>
+        <span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>
         ${dishVisual(item)}
       </div>
-      <h3 class="menu-card-title">${item.name}</h3>
-      <p class="menu-card-desc">${item.desc}</p>
+      <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
+      <p class="menu-card-desc">${escapeHTML(item.desc)}</p>
       <div class="menu-card-foot">
         <div class="menu-price"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price}</div>
         <div class="menu-card-control">${menuCardControlHTML(item.id)}</div>
@@ -291,21 +292,27 @@ function starsHTML(rating) {
 
 function avatarHTML(review) {
   if (review.imageUrl) {
-    return `<img class="review-avatar-img" src="${review.imageUrl}" alt="${review.name}" loading="lazy">`;
+    return `<img class="review-avatar-img" src="${escapeHTML(review.imageUrl)}" alt="${escapeHTML(review.name)}" loading="lazy">`;
   }
   const initials = (review.name || '?')
     .split(/\s+/).map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   // Stable color from name
   const palette = ['#E63946', '#2d6a3f', '#d97706', '#1A1A1A', '#8B5CF6'];
   const idx = (review.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
-  const bg = review.accentColor || palette[idx];
-  return `<div class="review-avatar-initial" style="background:${bg}">${initials}</div>`;
+  const bg = hexOr(review.accentColor, palette[idx]);
+  return `<div class="review-avatar-initial" style="background:${bg}">${escapeHTML(initials)}</div>`;
 }
 
 function escapeHTML(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Only allow a valid hex color through; otherwise use the fallback. Used for
+// DB-sourced color fields interpolated into SVG/style attributes (Finding 14).
+function hexOr(v, fb) {
+  return /^#[0-9a-fA-F]{3,8}$/.test(v || '') ? v : fb;
 }
 
 function renderReviewsFromCache() {
@@ -1111,7 +1118,7 @@ function renderCart() {
         <div class="cart-item">
           <div class="cart-item-icon">${dishVisual(item)}</div>
           <div class="cart-item-info">
-            <div class="cart-item-name">${item.name}</div>
+            <div class="cart-item-name">${escapeHTML(item.name)}</div>
             <div class="cart-item-price">${CONFIG.currency} ${item.price} × ${qty} = ${CONFIG.currency} ${item.price * qty}</div>
           </div>
           <div class="cart-qty">
