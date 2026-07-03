@@ -1206,7 +1206,6 @@ function openCheckoutModal() {
     document.body.style.overflow = 'hidden';
     renderCheckoutTotal();
     refreshLoyaltyForCheckout();
-    loadBankDetails();
     onPayMethodChange();
   }, 300);
 }
@@ -1270,13 +1269,12 @@ function bankTransferDiscount() {
 
 function onPayMethodChange() {
   const method = selectedPayMethod();
-  document.getElementById('bankPanel').hidden = method !== 'bank_transfer';
-  document.getElementById('cardPanel').hidden = method !== 'card';
+  const pp = document.getElementById('prepayPanel');
+  if (pp) pp.hidden = method !== 'prepay';
   document.querySelectorAll('.pay-option').forEach(opt => {
     const input = opt.querySelector('input[type="radio"]');
     opt.classList.toggle('active', input && input.checked);
   });
-  // Recalculate total — the bank-transfer discount is method-dependent.
   renderCheckoutTotal();
 }
 
@@ -1443,86 +1441,63 @@ function renderCheckoutTotal() {
 }
 
 async function submitOrder() {
-  // Belt-and-braces: block orders if outside business hours, even if
-  // the customer somehow reached the submit button (e.g. hours crossed
-  // while they were filling in the form).
+  // Client-side hours gate (UX). place_order enforces it server-side too.
   if (!isBusinessHours()) {
     closeModal();
     openClosedModal();
     return;
   }
 
-  const name = document.getElementById('custName').value.trim();
-  const phone = document.getElementById('custPhone').value.trim();
-  const address = document.getElementById('custAddress').value.trim();
-  const notes = document.getElementById('custNotes').value.trim();
-  const coupon = (document.getElementById('custCoupon').value || '').trim() || null;
+  const name     = document.getElementById('custName').value.trim();
+  const phone    = document.getElementById('custPhone').value.trim();
+  const altPhone = (document.getElementById('custAltPhone')?.value || '').trim();
+  const email    = (document.getElementById('custEmail')?.value || '').trim();
+  const address  = document.getElementById('custAddress').value.trim();
+  const notes    = document.getElementById('custNotes').value.trim();
+  const coupon   = (document.getElementById('custCoupon').value || '').trim() || null;
 
   if (!name || !phone || !address) {
     showToast('Please fill in name, phone, and address');
     return;
   }
 
-  // Build items payload + total for the DB
-  const items = Object.entries(cart).map(([id, qty]) => {
-    const item = MENU.find(m => m.id === id);
-    return { id, name: item?.name || id, qty, price: item?.price || 0 };
-  });
-  const total = cartTotal();
+  // Server recomputes name/price/total from menu_items — send only id + qty.
+  const items = Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+  if (items.length === 0) { showToast('Your cart is empty'); return; }
+
+  const payMethod = selectedPayMethod();   // 'cod' | 'prepay'
 
   const submitBtn = document.querySelector('#checkoutModal .modal-submit');
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
-
-  // Payment handling
-  const payMethod = selectedPayMethod();
-  let paymentProofUrl = null;
-
-  if (payMethod === 'bank_transfer') {
-    const fileInput = document.getElementById('payProof');
-    if (!fileInput.files || !fileInput.files[0]) {
-      showToast('Please upload your payment screenshot');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
-      return;
-    }
-    try {
-      if (submitBtn) submitBtn.textContent = 'Uploading proof…';
-      paymentProofUrl = await OrdersAPI.uploadPaymentProof(fileInput.files[0]);
-    } catch (err) {
-      console.error('[Pasto] proof upload failed:', err);
-      showToast('Could not upload screenshot — try a smaller image');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
-      return;
-    }
-  }
-
-  if (submitBtn) submitBtn.textContent = 'Saving order…';
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Placing order…'; }
 
   let placed = null;
   try {
     placed = await OrdersAPI.place({
-      name, phone, address, notes, items, total,
-      couponCode: coupon,
-      useCredit: _useFreeCredit,
-      paymentMethod: payMethod,
-      paymentProofUrl
+      name, phone, altPhone, email, address, notes, items,
+      couponCode: coupon, paymentMethod: payMethod
     });
   } catch (err) {
     console.error('[Pasto] place_order failed:', err);
-    // Build a friendlier, more specific message
     const raw = (err && (err.message || err.error_description || err.hint)) || '';
     let friendly = 'Could not save your order — please try again';
-    if (/function .*place_order.* does not exist/i.test(raw) ||
-        /could not find the function/i.test(raw) ||
-        /404|PGRST202|PGRST302/i.test(raw)) {
-      friendly = 'Orders table not set up yet. Re-run database/schema.sql in Supabase.';
-    } else if (/relation .*orders.* does not exist/i.test(raw)) {
-      friendly = 'Orders table missing. Re-run database/schema.sql in Supabase.';
-    } else if (/Invalid order payload/i.test(raw)) {
-      friendly = 'Please double-check your name, phone, and address.';
+    if (/we are closed/i.test(raw)) {
+      closeModal(); openClosedModal();
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
+      return;
+    } else if (/item not available/i.test(raw)) {
+      friendly = 'An item is no longer available — please refresh and rebuild your cart.';
+    } else if (/invalid or expired coupon/i.test(raw)) {
+      friendly = 'That promo / referral code is invalid or expired.';
+    } else if (/function .*place_order.* does not exist/i.test(raw) ||
+               /could not find the function/i.test(raw) ||
+               /404|PGRST202|PGRST302/i.test(raw)) {
+      friendly = 'Orders backend not set up yet. Re-run database/schema.sql in Supabase.';
+    } else if (/invalid order payload|invalid item quantity|invalid email|invalid order total/i.test(raw)) {
+      friendly = 'Please double-check your details and cart.';
     } else if (/permission denied|JWT|rls/i.test(raw)) {
       friendly = 'Database permission error — re-run database/schema.sql to fix policies.';
     } else if (/failed to fetch|networkerror|cors/i.test(raw)) {
-      friendly = 'Network error — check your internet and SUPABASE.url in js/config.js.';
+      friendly = 'Network error — check your internet connection.';
     } else if (raw) {
       friendly = 'Could not save order: ' + raw;
     }
@@ -1531,43 +1506,7 @@ async function submitOrder() {
     return;
   }
 
-  // Build the WhatsApp message (now includes the order code + discounts)
-  const discount = placed.discount || 0;
-  const payable = Math.max(0, total - discount);
-  let msg = `*New Pasto order #${placed.short_code}*\n\n`;
-  msg += `*Customer:* ${name}\n`;
-  msg += `*Phone:* ${phone}\n`;
-  msg += `*Address:* ${address}\n\n`;
-  msg += `*Order:*\n`;
-  items.forEach(it => {
-    msg += `• ${it.qty}× ${it.name} — ${CONFIG.currency} ${it.price * it.qty}\n`;
-  });
-  const bulkFree = placed.bulk_free_amount || 0;
-  const bankDiscShown = (payMethod === 'bank_transfer')
-    ? Math.round(total * BANK_TRANSFER_DISCOUNT_PCT / 100)
-    : 0;
-  const couponDisc = Math.max(0, discount - bulkFree - bankDiscShown);
-  msg += `\n*Subtotal:* ${CONFIG.currency} ${total}\n`;
-  if (bulkFree > 0)  msg += `*Buy 5 get 1 free:* −${CONFIG.currency} ${bulkFree}\n`;
-  if (coupon && couponDisc > 0) msg += `*Promo ${coupon}:* −${CONFIG.currency} ${couponDisc}\n`;
-  if (bankDiscShown > 0) msg += `*Bank transfer (${BANK_TRANSFER_DISCOUNT_PCT}% off):* −${CONFIG.currency} ${bankDiscShown}\n`;
-  const deliveryFeeAtSubmit = applicableDeliveryFee();
-  if (deliveryFeeAtSubmit > 0) msg += `*Delivery fee:* +${CONFIG.currency} ${deliveryFeeAtSubmit}\n`;
-  const finalPayable = Math.max(0, total - discount) + deliveryFeeAtSubmit;
-  if (discount > 0 || deliveryFeeAtSubmit > 0) {
-    msg += `*Total payable:* ${CONFIG.currency} ${finalPayable}\n`;
-  } else {
-    msg += `*Total:* ${CONFIG.currency} ${total}\n`;
-  }
-
-  const payLabel = payMethod === 'bank_transfer' ? 'Bank transfer (proof uploaded — please verify)'
-                  : payMethod === 'card'         ? 'Card / online (please send me a payment link)'
-                  :                                'Cash on delivery';
-  msg += `*Payment:* ${payLabel}`;
-  if (paymentProofUrl) msg += `\n*Proof:* ${paymentProofUrl}`;
-  if (notes) msg += `\n\n*Notes:* ${notes}`;
-
-  // Remember the order id locally so the tracker survives page reloads.
+  // Remember the order locally so the tracker survives page reloads.
   lsSet('pastoActiveOrder', {
     id: placed.id,
     short_code: placed.short_code,
@@ -1581,22 +1520,15 @@ async function submitOrder() {
   renderCart();
   updateCartCount();
   updateAllMenuCardControls();
-  ['custName', 'custPhone', 'custAddress', 'custNotes', 'custCoupon'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
+  ['custName','custPhone','custAltPhone','custEmail','custAddress','custNotes','custCoupon'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('couponFeedback').textContent = '';
-  document.getElementById('checkoutLoyalty').hidden = true;
-  document.getElementById('checkoutTotal').innerHTML = '';
-  const proofInput = document.getElementById('payProof');
-  if (proofInput) proofInput.value = '';
-  const proofPrev = document.getElementById('payProofPreview');
-  if (proofPrev) { proofPrev.hidden = true; proofPrev.innerHTML = ''; }
+  const cf = document.getElementById('couponFeedback'); if (cf) cf.textContent = '';
+  const cl = document.getElementById('checkoutLoyalty'); if (cl) cl.hidden = true;
+  const ct = document.getElementById('checkoutTotal'); if (ct) ct.innerHTML = '';
   const codRadio = document.querySelector('input[name="payMethod"][value="cod"]');
   if (codRadio) { codRadio.checked = true; onPayMethodChange(); }
   _appliedCoupon = null;
-  _useFreeCredit = false;
-  _loyaltyForCheckout = null;
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Place order'; }
 
   // Close checkout modal — confirmation modal takes over now
@@ -1703,6 +1635,44 @@ function showOrderConfirmModal(placed, payMethod) {
   if (codeEl) codeEl.textContent = code;
 
   _pendingOrderInfo = { id: placed.id, short_code: code, payMethod };
+
+  // Prepay (Option B): reveal the wallet number + screenshot upload only now.
+  const reveal = document.getElementById('prepayReveal');
+  if (reveal) {
+    if (payMethod === 'prepay' && placed.prepay_number) {
+      const amount = CONFIG.currency + ' ' + (placed.total || 0);
+      reveal.hidden = false;
+      reveal.innerHTML =
+        '<div class="prepay-head">Send <strong>' + escapeHTML(amount) + '</strong> to:</div>' +
+        '<div class="prepay-acct">' +
+          '<span class="prepay-title">' + escapeHTML(placed.prepay_title || '') + '</span>' +
+          '<span class="prepay-num">' + escapeHTML(placed.prepay_number) + '</span>' +
+          '<button type="button" class="bank-copy" id="prepayCopyBtn">Copy</button>' +
+        '</div>' +
+        '<label class="prepay-upload">Upload your payment screenshot' +
+          '<input type="file" id="prepayProof" accept="image/*"></label>' +
+        '<div class="prepay-upload-status" id="prepayUploadStatus"></div>';
+      const copyBtn = document.getElementById('prepayCopyBtn');
+      if (copyBtn) copyBtn.addEventListener('click', () => copyBank(placed.prepay_number));
+      const inp = document.getElementById('prepayProof');
+      if (inp) inp.addEventListener('change', async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const st = document.getElementById('prepayUploadStatus');
+        if (st) st.textContent = 'Uploading…';
+        try {
+          await OrdersAPI.attachPaymentProof(placed.id, f);
+          if (st) st.textContent = '✓ Screenshot received — we\'ll verify shortly.';
+        } catch (err) {
+          console.error('[Pasto] proof upload failed:', err);
+          if (st) st.textContent = 'Upload failed — try a smaller image.';
+        }
+      });
+    } else {
+      reveal.hidden = true;
+      reveal.innerHTML = '';
+    }
+  }
 
   const modal = document.getElementById('orderConfirmModal');
   const overlay = document.getElementById('overlay');
