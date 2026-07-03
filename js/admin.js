@@ -939,7 +939,7 @@ function renderPaymentInfo(o) {
   const methodLabel = PAY_METHOD_LABELS[method] || method;
   const statusLabel = PAY_STATUS_LABELS[status] || status;
   const proofHTML = o.payment_proof_url
-    ? `<a class="pay-proof-link" href="${escapeHTML(o.payment_proof_url)}" target="_blank" rel="noopener">View screenshot ↗</a>`
+    ? `<button type="button" class="pay-proof-link" data-proof-path="${escapeHTML(o.payment_proof_url)}">View screenshot ↗</button>`
     : '';
   const actions = [];
   if (status !== 'verified') {
@@ -1113,6 +1113,18 @@ document.addEventListener('click', (e) => {
   const msg = `Hi ${first}! Thanks for your Pasto order #${b.dataset.code}. `
             + `We're confirming it now and will start cooking shortly. 🍝`;
   window.open(`https://wa.me/${n}?text=${encodeURIComponent(msg)}`, '_blank');
+});
+
+// Delegated handler: open a private payment-proof via a short-lived signed URL.
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-proof-path]');
+  if (!b) return;
+  try {
+    const url = await OrdersAPI.signedProofUrl(b.dataset.proofPath);
+    window.open(url, '_blank', 'noopener');
+  } catch (err) {
+    showToast('Could not open screenshot: ' + (err.message || ''));
+  }
 });
 
 function whatsappOneSignup(phone, name, id) {

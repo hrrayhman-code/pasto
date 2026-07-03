@@ -274,7 +274,10 @@ begin
     return query select p_phone, null::text, 0, 0, 5, 0, null::text;
     return;
   end if;
-  return query select l.phone, l.name, l.order_count, l.free_credits,
+  -- name is intentionally NOT returned: get_loyalty is anon-callable and keyed
+  -- only on phone, so returning the real name would let anyone enumerate phone
+  -- numbers → identities (Finding 4). Callers get progress + referral only.
+  return query select l.phone, null::text, l.order_count, l.free_credits,
     5 - (l.order_count % 5),                           -- orders until next free
     (l.order_count % 5),                               -- progress 0..4
     l.referral_code;
@@ -497,14 +500,16 @@ alter table public.orders
   add constraint orders_payment_status_check
     check (payment_status in ('pending','awaiting_verification','verified','failed'));
 
--- Storage bucket for payment proof uploads
--- (public bucket so admin can view; paths include UUID so URLs are unguessable)
+-- Storage bucket for payment proof uploads (Finding 2 completion).
+-- PRIVATE bucket: anon can only upload (insert policy below); the admin views
+-- each proof through a short-lived signed URL. No public/anon read at all.
 insert into storage.buckets (id, name, public)
-  values ('payment-proofs', 'payment-proofs', true) on conflict (id) do nothing;
+  values ('payment-proofs', 'payment-proofs', false) on conflict (id) do nothing;
 
--- Constrain uploads: images only, 5 MB cap (Finding 9).
+-- Make it private + constrain uploads: images only, 5 MB cap (Findings 2 & 9).
 update storage.buckets
-   set file_size_limit = 5242880,
+   set public = false,
+       file_size_limit = 5242880,
        allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic']
  where id = 'payment-proofs';
 

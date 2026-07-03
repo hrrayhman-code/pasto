@@ -159,17 +159,27 @@ const OrdersAPI = {
   },
 
   // ---------- Public: upload payment proof screenshot ----------
+  // Private bucket (Finding 2): returns the object PATH (stored in the order);
+  // the admin views it later via a short-lived signed URL (signedProofUrl).
   async uploadPaymentProof(file) {
     if (!file) throw new Error('No file');
-    // Unguessable object name (Finding 2): crypto UUID, not Date.now()+Math.random().
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
     const path = `${crypto.randomUUID()}.${ext || 'jpg'}`;
     const { error } = await sb.storage
       .from('payment-proofs')
       .upload(path, file, { cacheControl: '3600', upsert: false });
     if (error) throw error;
-    const { data } = sb.storage.from('payment-proofs').getPublicUrl(path);
-    return data.publicUrl;
+    return path;
+  },
+
+  // ---------- Admin: short-lived signed URL for a private proof ----------
+  async signedProofUrl(pathOrUrl) {
+    if (!pathOrUrl) throw new Error('No proof');
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;   // legacy full-URL rows
+    const { data, error } = await sb.storage
+      .from('payment-proofs').createSignedUrl(pathOrUrl, 300); // 5 min
+    if (error) throw error;
+    return data.signedUrl;
   },
 
   // ---------- Admin: payment moderation ----------

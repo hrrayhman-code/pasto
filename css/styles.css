@@ -3210,6 +3210,11 @@ body.noa-ringing {
   text-decoration: underline;
   font-size: 12px;
   font-weight: 600;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 .ord-payment-actions {
   margin-top: 8px;
