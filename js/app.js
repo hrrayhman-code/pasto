@@ -1859,8 +1859,11 @@ function renderTracker(row) {
   }
   // Prepay: wallet + upload inside the persistent tracker, so the customer can
   // pay/upload even after closing the confirmation modal.
+  // Only while awaiting payment (no screenshot yet). Once the screenshot is
+  // attached the status flips to 'awaiting_verification' and this block hides,
+  // leaving the "Verifying your payment screenshot…" line in the footer.
   const showPrepay = row.payment_method === 'prepay'
-    && row.payment_status !== 'verified' && row.payment_status !== 'failed'
+    && row.payment_status === 'pending'
     && row.prepay_number;
   const prepayHTML = showPrepay
     ? '<div class="tracker-prepay">' + prepayBlockHTML({
