@@ -571,7 +571,7 @@
   <!-- ============================================== -->
   <div class="modal" id="checkoutModal">
     <h2 class="modal-title">One more step</h2>
-    <p class="modal-sub">Fill in your details and we'll receive your order on WhatsApp right away.</p>
+    <p class="modal-sub">Fill in your details — we'll start on your order right away.</p>
     <div class="field">
       <label for="custName">Name</label>
       <input type="text" id="custName" placeholder="Your full name" required>
@@ -579,6 +579,14 @@
     <div class="field">
       <label for="custPhone">Phone</label>
       <input type="tel" id="custPhone" placeholder="03XX XXXXXXX" required>
+    </div>
+    <div class="field">
+      <label for="custAltPhone">Alternate phone (optional)</label>
+      <input type="tel" id="custAltPhone" placeholder="Another number we can reach you on">
+    </div>
+    <div class="field">
+      <label for="custEmail">Email (optional)</label>
+      <input type="email" id="custEmail" placeholder="For an order confirmation">
     </div>
     <div class="field">
       <label for="custAddress">Delivery address</label>
@@ -611,34 +619,19 @@
           </span>
         </label>
         <label class="pay-option pay-option-promo">
-          <input type="radio" name="payMethod" value="bank_transfer" onchange="onPayMethodChange()">
+          <input type="radio" name="payMethod" value="prepay" onchange="onPayMethodChange()">
           <span class="pay-option-body">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-5 7 5v11M9 21V13h6v8"/></svg>
-            <span class="pay-option-title">Bank transfer <span class="pay-option-badge">5% OFF</span></span>
-            <span class="pay-option-desc">Transfer to our account, upload the screenshot — save 5% instantly.</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            <span class="pay-option-title">Prepay — Easypaisa / JazzCash <span class="pay-option-badge" id="prepayBadge">SAVE</span></span>
+            <span class="pay-option-desc">Pay in advance and save. We'll show the number after you place the order.</span>
           </span>
         </label>
       </div>
     </div>
 
-    <!-- Bank transfer panel (shown when method = bank_transfer) -->
-    <div class="pay-panel" id="bankPanel" hidden>
-      <div class="pay-panel-head">Transfer to:</div>
-      <dl class="bank-details" id="bankDetails">
-        <div><dt>Loading…</dt><dd></dd></div>
-      </dl>
-      <div class="field">
-        <label for="payProof">Upload payment screenshot</label>
-        <input type="file" id="payProof" accept="image/*">
-        <div class="pay-proof-preview" id="payProofPreview" hidden></div>
-        <div class="pay-hint">JPG or PNG · we'll verify within ~10 minutes and start cooking.</div>
-      </div>
-    </div>
-
-    <!-- Card panel kept in DOM but hidden — re-enable once SafePay is integrated. -->
-    <div class="pay-panel" id="cardPanel" hidden>
-      <div class="pay-panel-head">How card payment works</div>
-      <p class="pay-card-note" id="payCardNote"></p>
+    <!-- Prepay note (the wallet number is revealed only after the order is placed) -->
+    <div class="pay-panel" id="prepayPanel" hidden>
+      <p class="pay-card-note">After you place the order, we'll show our Easypaisa/JazzCash number on the confirmation screen — pay there and upload your screenshot.</p>
     </div>
 
     <div class="checkout-total" id="checkoutTotal"></div>
@@ -687,6 +680,9 @@
       <div class="oc-code-label">Your order code</div>
       <div class="oc-code-value">#<span id="confirmOrderCode">–</span></div>
     </div>
+
+    <!-- Prepay wallet reveal + screenshot upload (populated by app.js for prepay orders) -->
+    <div class="prepay-reveal" id="prepayReveal" hidden></div>
 
     <p class="oc-instructions">
       Track your order status live below. We'll update you every step of the way — from prep to your door.
