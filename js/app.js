@@ -1398,20 +1398,8 @@ async function refreshLoyaltyForCheckout() {
   }
 }
 
-function toggleFreeCredit(on) {
-  _useFreeCredit = !!on;
-  renderCheckoutTotal();
-}
-
-function stampRow(progress) {
-  let html = '<div class="loyalty-stamps">';
-  for (let i = 0; i < 5; i++) {
-    const filled = i < progress;
-    html += `<div class="loyalty-stamp ${filled ? 'on' : ''}">${filled ? '★' : i + 1}</div>`;
-  }
-  html += '</div>';
-  return html;
-}
+// (Loyalty stamp-card + free-credit UI removed — the cross-order rewards
+//  program was dropped in Spec #2; referrals + buy-5-get-1 remain.)
 
 function renderCheckoutTotal() {
   const wrap = document.getElementById('checkoutTotal');
@@ -2082,11 +2070,10 @@ document.addEventListener('DOMContentLoaded', () => {
         resultEl.innerHTML = `
           <div class="rewards-result-empty">
             <h4>No orders yet under this phone.</h4>
-            <p>Place your first order and your loyalty card starts automatically — plus you'll get your own referral code to share.</p>
+            <p>Place your first order and you'll get your own referral code to share.</p>
           </div>`;
         return;
       }
-      const credits = row.free_credits || 0;
       resultEl.innerHTML = `
         <div class="rewards-result-card">
           <div class="rewards-card-head">
@@ -2094,11 +2081,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="rewards-card-name">${escapeHTML(row.name || 'Pasto regular')}</div>
               <div class="rewards-card-count">${row.order_count} order${row.order_count === 1 ? '' : 's'} so far</div>
             </div>
-            ${credits > 0
-              ? `<div class="rewards-credit-pill">${credits} free item${credits === 1 ? '' : 's'} ready</div>`
-              : `<div class="rewards-credit-pill muted">${5 - row.progress} to go</div>`}
           </div>
-          ${stampRow(row.progress)}
           <div class="rewards-card-foot">
             <div class="rewards-referral">
               <div class="rewards-referral-label">Your referral code</div>
@@ -2106,7 +2089,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <code>${escapeHTML(row.referral_code)}</code>
                 <button class="btn btn-secondary" onclick="copyReferral('${escapeHTML(row.referral_code)}')">Copy</button>
               </div>
-              <div class="rewards-referral-hint">Share it — they get a discount, you get extra credits when they order.</div>
+              <div class="rewards-referral-hint">Share it — friends get 10% off their first order.</div>
             </div>
           </div>
         </div>
