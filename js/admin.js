@@ -162,7 +162,7 @@ function showDashboard(session) {
   loadCoupons();
   loadMenuItems();
   loadSiteImagePreview();
-  loadBankSettings();
+  loadStoreSettings();
   loadLaunchSignups();
   setupOrdersAutoRefresh();
   // Realtime push: get sound + notification the moment an order comes in
@@ -971,74 +971,44 @@ async function actPayStatus(id, status) {
   } catch (err) { showToast('Failed: ' + err.message); }
 }
 
-async function loadBankSettings() {
+async function loadStoreSettings() {
   try {
     const s = await SettingsAPI.getAll();
-    document.getElementById('bsBank').value     = s.bank_name || '';
-    document.getElementById('bsTitle').value    = s.bank_account_title || '';
-    document.getElementById('bsNumber').value   = s.bank_account_number || '';
-    document.getElementById('bsIban').value     = s.bank_iban || '';
-    document.getElementById('bsBranch').value   = s.bank_branch_code || '';
-    document.getElementById('bsCardNote').value = s.payment_card_note || '';
-    // Delivery settings are in the same site_settings table
-    document.getElementById('dsLat').value      = s.kitchen_lat || '';
-    document.getElementById('dsLng').value      = s.kitchen_lng || '';
-    document.getElementById('dsRadius').value   = s.delivery_radius_km || '';
-    document.getElementById('dsFee').value      = s.delivery_fee || '';
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('stPrepayTitle',  s.prepay_title || '');
+    set('stPrepayNumber', s.prepay_number || '');
+    set('stPrepayPct',    s.prepay_discount_percent || '');
+    set('stDeliveryFee',  s.delivery_fee || '');
+    set('stFreeOver',     s.free_delivery_over || '');
+    set('stHoursStart',   s.business_hours_start || '');
+    set('stHoursEnd',     s.business_hours_end || '');
   } catch (err) {
-    console.warn('load bank settings failed', err);
+    console.warn('load store settings failed', err);
   }
 }
 
-async function saveDeliverySettings(e) {
+async function saveStoreSettings(e) {
   e.preventDefault();
   const submitBtn = e.target.querySelector('button[type="submit"]');
-  const lat    = document.getElementById('dsLat').value.trim();
-  const lng    = document.getElementById('dsLng').value.trim();
-  const radius = document.getElementById('dsRadius').value.trim();
-  const fee    = document.getElementById('dsFee').value.trim();
-
-  if (!lat || !lng || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
-    showToast('Please enter valid latitude and longitude'); return;
-  }
+  const val = id => (document.getElementById(id)?.value || '').trim();
   submitBtn.disabled = true;
   submitBtn.textContent = 'Saving…';
   try {
     await Promise.all([
-      SettingsAPI.set('kitchen_lat',        lat),
-      SettingsAPI.set('kitchen_lng',        lng),
-      SettingsAPI.set('delivery_radius_km', radius || '10'),
-      SettingsAPI.set('delivery_fee',       fee    || '250')
+      SettingsAPI.set('prepay_title',            val('stPrepayTitle')),
+      SettingsAPI.set('prepay_number',           val('stPrepayNumber')),
+      SettingsAPI.set('prepay_discount_percent', val('stPrepayPct') || '0'),
+      SettingsAPI.set('delivery_fee',            val('stDeliveryFee') || '0'),
+      SettingsAPI.set('free_delivery_over',      val('stFreeOver') || '0'),
+      SettingsAPI.set('business_hours_start',    val('stHoursStart') || '18:00'),
+      SettingsAPI.set('business_hours_end',      val('stHoursEnd') || '23:00')
     ]);
-    showToast('Delivery settings saved');
+    showToast('Settings saved');
   } catch (err) {
     showToast('Failed: ' + (err.message || ''));
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Save delivery settings';
-  }
-}
-
-async function saveBankSettings(e) {
-  e.preventDefault();
-  const submitBtn = e.target.querySelector('button[type="submit"]');
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Saving…';
-  try {
-    await Promise.all([
-      SettingsAPI.set('bank_name',          document.getElementById('bsBank').value.trim()),
-      SettingsAPI.set('bank_account_title', document.getElementById('bsTitle').value.trim()),
-      SettingsAPI.set('bank_account_number',document.getElementById('bsNumber').value.trim()),
-      SettingsAPI.set('bank_iban',          document.getElementById('bsIban').value.trim()),
-      SettingsAPI.set('bank_branch_code',   document.getElementById('bsBranch').value.trim()),
-      SettingsAPI.set('payment_card_note',  document.getElementById('bsCardNote').value.trim())
-    ]);
-    showToast('Bank details saved');
-  } catch (err) {
-    showToast('Failed: ' + (err.message || ''));
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Save bank details';
+    submitBtn.textContent = 'Save settings';
   }
 }
 

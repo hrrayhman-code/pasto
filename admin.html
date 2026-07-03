@@ -358,72 +358,45 @@
           </form>
         </div>
 
-        <h4 class="site-subhead" style="margin-top: 36px;">Delivery zone</h4>
-        <p class="coupons-sub" style="margin-bottom: 16px;">Set your kitchen's exact location and how far you'll deliver. Customers' browsers check their distance from you and either confirm delivery or suggest WhatsApp for out-of-zone requests.</p>
-        <form class="coupon-form" id="deliveryForm" onsubmit="saveDeliverySettings(event)">
+        <h4 class="site-subhead" style="margin-top: 36px;">Payments &amp; delivery</h4>
+        <p class="coupons-sub" style="margin-bottom: 16px;">Prepay uses Easypaisa/JazzCash. The wallet number is shown to a customer only after they place a prepay order &mdash; never on the public site.</p>
+        <form class="coupon-form" id="storeForm" onsubmit="saveStoreSettings(event)">
           <div class="coupon-form-row">
             <div class="field">
-              <label for="dsLat">Kitchen latitude</label>
-              <input id="dsLat" type="text" placeholder="24.8607" inputmode="decimal">
+              <label for="stPrepayTitle">Prepay account title</label>
+              <input id="stPrepayTitle" type="text" placeholder="Pasto by Aiman">
             </div>
             <div class="field">
-              <label for="dsLng">Kitchen longitude</label>
-              <input id="dsLng" type="text" placeholder="67.0011" inputmode="decimal">
+              <label for="stPrepayNumber">Easypaisa / JazzCash number</label>
+              <input id="stPrepayNumber" type="text" placeholder="03XX XXXXXXX">
             </div>
             <div class="field">
-              <label for="dsRadius">Delivery radius (km)</label>
-              <input id="dsRadius" type="number" min="1" step="0.5" placeholder="10">
-            </div>
-            <div class="field">
-              <label for="dsFee">Delivery fee (Rs.)</label>
-              <input id="dsFee" type="number" min="0" placeholder="250">
+              <label for="stPrepayPct">Prepay discount (%)</label>
+              <input id="stPrepayPct" type="number" min="0" max="100" placeholder="5">
             </div>
           </div>
-          <div class="field">
-            <label for="dsHelper">Find your coordinates</label>
-            <div style="font-size: 13px; color: var(--muted); line-height: 1.5;">
-              Open <a href="https://www.google.com/maps" target="_blank" rel="noopener" style="color: var(--red); text-decoration: underline;">Google Maps</a>,
-              long-press on your kitchen location until a red pin drops,
-              and the coordinates appear at the bottom (e.g. <code>24.8607, 67.0011</code>).
-              Latitude is the first number, longitude is the second.
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="stDeliveryFee">Delivery fee (Rs.)</label>
+              <input id="stDeliveryFee" type="number" min="0" placeholder="250">
+            </div>
+            <div class="field">
+              <label for="stFreeOver">Free delivery over (Rs., 0 = off)</label>
+              <input id="stFreeOver" type="number" min="0" placeholder="0">
+            </div>
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="stHoursStart">Orders open (24h)</label>
+              <input id="stHoursStart" type="time">
+            </div>
+            <div class="field">
+              <label for="stHoursEnd">Orders close (24h)</label>
+              <input id="stHoursEnd" type="time">
             </div>
           </div>
           <div class="modal-foot" style="justify-content: flex-start;">
-            <button type="submit" class="modal-submit">Save delivery settings</button>
-          </div>
-        </form>
-
-        <h4 class="site-subhead" style="margin-top: 36px;">Bank account (for bank transfer payments)</h4>
-        <p class="coupons-sub" style="margin-bottom: 16px;">Customers see these details when they choose Bank Transfer at checkout. Leave any field blank to hide it.</p>
-        <form class="coupon-form" id="bankForm" onsubmit="saveBankSettings(event)">
-          <div class="coupon-form-row">
-            <div class="field">
-              <label for="bsBank">Bank name</label>
-              <input id="bsBank" type="text" placeholder="e.g. Meezan Bank">
-            </div>
-            <div class="field">
-              <label for="bsTitle">Account title</label>
-              <input id="bsTitle" type="text" placeholder="Pasto by Aiman">
-            </div>
-            <div class="field">
-              <label for="bsNumber">Account number</label>
-              <input id="bsNumber" type="text" placeholder="0123-4567-8901-2345">
-            </div>
-            <div class="field">
-              <label for="bsIban">IBAN</label>
-              <input id="bsIban" type="text" placeholder="PK00 ABCD 0000 0000 0000 0000">
-            </div>
-            <div class="field">
-              <label for="bsBranch">Branch code</label>
-              <input id="bsBranch" type="text" placeholder="0123">
-            </div>
-          </div>
-          <div class="field">
-            <label for="bsCardNote">Note shown for Card / online payments</label>
-            <textarea id="bsCardNote" rows="2" placeholder="After you submit, we'll WhatsApp you a payment link…"></textarea>
-          </div>
-          <div class="modal-foot" style="justify-content: flex-start;">
-            <button type="submit" class="modal-submit">Save bank details</button>
+            <button type="submit" class="modal-submit">Save settings</button>
           </div>
         </form>
       </div>
