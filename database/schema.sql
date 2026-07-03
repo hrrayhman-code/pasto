@@ -632,7 +632,9 @@ begin
   end if;
 
   v_discount := least(v_discount, v_subtotal);
-  v_pay_status := case when p_payment_method='prepay' then 'awaiting_verification' else 'pending' end;
+  -- Both start 'pending' (COD = pay on delivery; prepay = awaiting payment).
+  -- Prepay flips to 'awaiting_verification' only when the screenshot is attached.
+  v_pay_status := 'pending';
 
   insert into public.loyalty (phone, name) values (p_phone, p_name)
     on conflict (phone) do update set name=excluded.name, updated_at=now()
@@ -683,7 +685,8 @@ returns table (
   created_at timestamptz,
   updated_at timestamptz,
   prepay_title text,
-  prepay_number text
+  prepay_number text,
+  total int
 )
 language sql
 security definer
@@ -700,7 +703,8 @@ as $$
     case when o.payment_method = 'prepay' and o.payment_status <> 'verified'
       then (select value from public.site_settings where key = 'prepay_title') end,
     case when o.payment_method = 'prepay' and o.payment_status <> 'verified'
-      then (select value from public.site_settings where key = 'prepay_number') end
+      then (select value from public.site_settings where key = 'prepay_number') end,
+    o.total
   from public.orders o
   where o.id = order_id;
 $$;

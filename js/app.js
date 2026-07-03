@@ -1634,6 +1634,47 @@ function finishOrderFlow() {
   }
 }
 
+// Shared prepay-payment block: wallet account + number + copy + screenshot
+// upload. Used by the order-confirmation modal AND the persistent tracker so
+// the customer can always pay + upload, even after closing the confirmation.
+function prepayBlockHTML(opts) {
+  const amountLine = (opts.amount != null)
+    ? 'Send <strong>' + CONFIG.currency + ' ' + (Number(opts.amount) || 0) + '</strong> to:'
+    : 'Complete your payment to:';
+  return '' +
+    '<div class="prepay-head">' + amountLine + '</div>' +
+    '<div class="prepay-acct">' +
+      '<div class="prepay-line"><span class="prepay-label">Account</span>' +
+        '<span class="prepay-title">' + escapeHTML(opts.title || '') + '</span></div>' +
+      '<div class="prepay-line"><span class="prepay-label">Number</span>' +
+        '<span class="prepay-num">' + escapeHTML(opts.number || '') + '</span>' +
+        '<button type="button" class="bank-copy prepay-copy-btn">Copy</button></div>' +
+    '</div>' +
+    '<label class="prepay-upload">Upload your payment screenshot' +
+      '<input type="file" class="prepay-proof-input" accept="image/*"></label>' +
+    '<div class="prepay-upload-status"></div>';
+}
+
+function wirePrepayBlock(container, orderId, number) {
+  const copyBtn = container.querySelector('.prepay-copy-btn');
+  if (copyBtn) copyBtn.addEventListener('click', () => copyBank(number));
+  const inp = container.querySelector('.prepay-proof-input');
+  if (inp) inp.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const st = container.querySelector('.prepay-upload-status');
+    if (st) st.textContent = 'Uploading…';
+    try {
+      await OrdersAPI.attachPaymentProof(orderId, f);
+      if (st) st.textContent = '✓ Screenshot received — we\'ll verify shortly.';
+      if (_trackerOrderId === orderId) pollTracker();  // refresh the tracker status
+    } catch (err) {
+      console.error('[Pasto] proof upload failed:', err);
+      if (st) st.textContent = 'Upload failed — try a smaller image.';
+    }
+  });
+}
+
 function showOrderConfirmModal(placed, payMethod) {
   const code = placed.short_code || '';
   const codeEl = document.getElementById('confirmOrderCode');
@@ -1645,34 +1686,11 @@ function showOrderConfirmModal(placed, payMethod) {
   const reveal = document.getElementById('prepayReveal');
   if (reveal) {
     if (payMethod === 'prepay' && placed.prepay_number) {
-      const amount = CONFIG.currency + ' ' + (placed.total || 0);
       reveal.hidden = false;
-      reveal.innerHTML =
-        '<div class="prepay-head">Send <strong>' + escapeHTML(amount) + '</strong> to:</div>' +
-        '<div class="prepay-acct">' +
-          '<span class="prepay-title">' + escapeHTML(placed.prepay_title || '') + '</span>' +
-          '<span class="prepay-num">' + escapeHTML(placed.prepay_number) + '</span>' +
-          '<button type="button" class="bank-copy" id="prepayCopyBtn">Copy</button>' +
-        '</div>' +
-        '<label class="prepay-upload">Upload your payment screenshot' +
-          '<input type="file" id="prepayProof" accept="image/*"></label>' +
-        '<div class="prepay-upload-status" id="prepayUploadStatus"></div>';
-      const copyBtn = document.getElementById('prepayCopyBtn');
-      if (copyBtn) copyBtn.addEventListener('click', () => copyBank(placed.prepay_number));
-      const inp = document.getElementById('prepayProof');
-      if (inp) inp.addEventListener('change', async (e) => {
-        const f = e.target.files && e.target.files[0];
-        if (!f) return;
-        const st = document.getElementById('prepayUploadStatus');
-        if (st) st.textContent = 'Uploading…';
-        try {
-          await OrdersAPI.attachPaymentProof(placed.id, f);
-          if (st) st.textContent = '✓ Screenshot received — we\'ll verify shortly.';
-        } catch (err) {
-          console.error('[Pasto] proof upload failed:', err);
-          if (st) st.textContent = 'Upload failed — try a smaller image.';
-        }
+      reveal.innerHTML = prepayBlockHTML({
+        title: placed.prepay_title, number: placed.prepay_number, amount: placed.total
       });
+      wirePrepayBlock(reveal, placed.id, placed.prepay_number);
     } else {
       reveal.hidden = true;
       reveal.innerHTML = '';
@@ -1727,6 +1745,7 @@ function startOrderTracker(orderId) {
   const panel = document.getElementById('orderTracker');
   if (!panel) return;
   panel.hidden = false;
+  hideOrderPill();
   pollTracker();
   if (_trackerTimer) clearInterval(_trackerTimer);
   _trackerTimer = setInterval(pollTracker, 15000); // every 15s
@@ -1735,6 +1754,24 @@ function startOrderTracker(orderId) {
 function stopOrderTracker() {
   if (_trackerTimer) clearInterval(_trackerTimer);
   _trackerTimer = null;
+}
+
+// Floating pill to RE-OPEN a dismissed tracker while an order is still active.
+function showOrderPill() {
+  const saved = lsGet('pastoActiveOrder', null);
+  const pill = document.getElementById('orderPill');
+  if (!pill || !saved || !saved.id) return;
+  const codeEl = pill.querySelector('.order-pill-code');
+  if (codeEl) codeEl.textContent = saved.short_code ? '#' + saved.short_code : '';
+  pill.hidden = false;
+}
+function hideOrderPill() {
+  const pill = document.getElementById('orderPill');
+  if (pill) pill.hidden = true;
+}
+function reopenTracker() {
+  const saved = lsGet('pastoActiveOrder', null);
+  if (saved && saved.id) startOrderTracker(saved.id);
 }
 
 async function pollTracker() {
@@ -1803,8 +1840,8 @@ function renderTracker(row) {
     foot = `Verifying your payment screenshot — usually within 10 min`;
   } else if (row.payment_status === 'verified' && row.status === 'received') {
     foot = `Payment verified · order is queued for the kitchen`;
-  } else if (row.payment_method === 'card' && row.payment_status === 'pending') {
-    foot = `Awaiting payment link from us via WhatsApp`;
+  } else if (row.payment_method === 'prepay' && row.payment_status === 'pending') {
+    foot = `Send your payment and upload the screenshot below to start your order`;
   }
   const stored = lsGet('pastoActiveOrder', {});
   const refCode = stored.referral_code;
@@ -1820,7 +1857,22 @@ function renderTracker(row) {
       </div>
     `;
   }
-  footEl.innerHTML = refHTML + `<div class="tracker-foot-line">${foot}</div>`;
+  // Prepay: wallet + upload inside the persistent tracker, so the customer can
+  // pay/upload even after closing the confirmation modal.
+  const showPrepay = row.payment_method === 'prepay'
+    && row.payment_status !== 'verified' && row.payment_status !== 'failed'
+    && row.prepay_number;
+  const prepayHTML = showPrepay
+    ? '<div class="tracker-prepay">' + prepayBlockHTML({
+        title: row.prepay_title, number: row.prepay_number, amount: row.total
+      }) + '</div>'
+    : '';
+
+  footEl.innerHTML = prepayHTML + refHTML + `<div class="tracker-foot-line">${foot}</div>`;
+  if (showPrepay) {
+    const pc = footEl.querySelector('.tracker-prepay');
+    if (pc) wirePrepayBlock(pc, _trackerOrderId, row.prepay_number);
+  }
 }
 
 function copyReferral(code) {
@@ -1837,6 +1889,8 @@ function hideTracker(clearStored) {
   stopOrderTracker();
   _trackerOrderId = null;
   _trackerCurrentStatus = null;
+  // If the order is still active (not cleared), leave a pill to reopen it.
+  if (clearStored) hideOrderPill(); else showOrderPill();
 }
 
 // Smart close: if the order is already in a terminal state, dismissing
@@ -1989,6 +2043,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resumeTrackerIfActive();
 
   document.getElementById('orderTrackerClose')?.addEventListener('click', dismissTracker);
+  document.getElementById('orderPill')?.addEventListener('click', reopenTracker);
   setupPayProofPreview();
 
   // Rewards lookup form
