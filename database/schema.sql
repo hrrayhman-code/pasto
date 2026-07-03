@@ -593,7 +593,7 @@ begin
   for v_it in select value from jsonb_array_elements(p_items) loop
     v_qty := coalesce((v_it->>'qty')::int, 0);
     if v_qty <= 0 then raise exception 'Invalid item quantity'; end if;
-    select * into v_menu from public.menu_items where id = (v_it->>'id') and active = true;
+    select * into v_menu from public.menu_items m where m.id = (v_it->>'id') and m.active = true;
     if not found then raise exception 'Item not available'; end if;
     v_subtotal  := v_subtotal + v_menu.price * v_qty;
     v_total_qty := v_total_qty + v_qty;
