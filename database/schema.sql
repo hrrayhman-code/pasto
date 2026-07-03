@@ -404,17 +404,16 @@ alter table public.site_settings enable row level security;
 drop policy if exists "public_read_settings" on public.site_settings;
 drop policy if exists "auth_settings_all"    on public.site_settings;
 
--- Whitelist non-secret keys only. Secret rows (telegram_bot_token,
--- telegram_chat_id) are deliberately excluded so anon cannot read them;
--- the admin still sees everything via auth_settings_all below.
+-- Whitelist non-secret keys only. Secrets and the prepay wallet number
+-- (prepay_number/prepay_title) are deliberately excluded so anon cannot read
+-- them; the wallet is returned only via place_order/track_order to an
+-- order-placer. Admin sees everything via auth_settings_all below.
 create policy "public_read_settings"
   on public.site_settings for select
   to anon, authenticated
   using (key in (
-    'bank_name','bank_account_title','bank_account_number','bank_iban',
-    'bank_branch_code','payment_card_note',
-    'kitchen_lat','kitchen_lng','delivery_radius_km','delivery_fee',
-    'hero_image_url'
+    'delivery_fee','free_delivery_over','hero_image_url',
+    'business_hours_start','business_hours_end'
   ));
 
 create policy "auth_settings_all"
@@ -477,6 +476,16 @@ do $$ begin
   end if;
 end $$;
 
+-- Spec #2 order columns
+alter table public.orders add column if not exists alt_phone    text;
+alter table public.orders add column if not exists email        text;
+alter table public.orders add column if not exists subtotal     int;
+alter table public.orders add column if not exists delivery_fee int not null default 0;
+
+-- Migrate legacy payment methods to the cod/prepay model, then re-constrain.
+update public.orders set payment_method = 'prepay' where payment_method = 'bank_transfer';
+update public.orders set payment_method = 'cod'    where payment_method = 'card';
+
 -- Constraints (drop + add so we can change valid values without errors on re-run)
 alter table public.orders
   drop constraint if exists orders_payment_method_check,
@@ -484,7 +493,7 @@ alter table public.orders
 
 alter table public.orders
   add constraint orders_payment_method_check
-    check (payment_method in ('cod','bank_transfer','card')),
+    check (payment_method in ('cod','prepay')),
   add constraint orders_payment_status_check
     check (payment_status in ('pending','awaiting_verification','verified','failed'));
 
@@ -520,139 +529,148 @@ create policy "auth_all_payment_proofs"
   with check (bucket_id = 'payment-proofs');
 
 
--- Update place_order to accept payment_method + proof URL
+-- place_order — Spec #2 rewrite: server-authoritative totals (no client price/total trust),
+-- server-side business-hours + delivery fee + prepay discount; cod/prepay only.
 drop function if exists public.place_order(text, text, text, text, jsonb, int, text, boolean);
 drop function if exists public.place_order(text, text, text, text, jsonb, int, text, boolean, text, text);
 
 create or replace function public.place_order(
-  p_name              text,
-  p_phone             text,
-  p_address           text,
-  p_notes             text,
-  p_items             jsonb,
-  p_total             int,
-  p_coupon_code       text default null,
-  p_use_credit        boolean default false,
-  p_payment_method    text default 'cod',
-  p_payment_proof_url text default null
+  p_name           text,
+  p_phone          text,
+  p_alt_phone      text,
+  p_email          text,
+  p_address        text,
+  p_notes          text,
+  p_items          jsonb,             -- [{ id, qty }] ; client price/name IGNORED
+  p_coupon_code    text default null,
+  p_payment_method text default 'cod'
 )
 returns table (
   id uuid, short_code text, referral_code text,
-  discount int, free_used boolean, bulk_free_amount int
+  subtotal int, delivery_fee int, discount int, total int,
+  free_used boolean, bulk_free_amount int,
+  prepay_title text, prepay_number text
 )
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  new_id          uuid;
-  new_code        text;
-  v_discount      int := 0;
-  v_coupon        text := null;
-  v_coupon_disc   int := 0;
-  v_loyalty       public.loyalty%rowtype;
-  v_total_qty     int := 0;
-  v_cheapest      int := 0;
-  v_bulk_free     int := 0;
-  v_free_used     boolean := false;
-  v_referral_code text;
-  v_pay_method    text;
-  v_pay_status    text;
+  new_id uuid; new_code text;
+  v_it jsonb; v_qty int; v_menu public.menu_items%rowtype;
+  v_items jsonb := '[]'::jsonb;
+  v_subtotal int := 0; v_total_qty int := 0; v_cheapest int := 0;
+  v_delivery int := 0; v_fee int := 0; v_free_over int := 0;
+  v_discount int := 0; v_bulk_free int := 0; v_free_used boolean := false;
+  v_coupon text := null; v_coupon_disc int := 0; v_prepay_pct int := 0;
+  v_hstart text; v_hend text; v_now time;
+  v_loyalty public.loyalty%rowtype; v_referral_code text;
+  v_pay_status text; v_ptitle text := null; v_pnumber text := null;
 begin
-  if char_length(coalesce(p_name, '')) < 2
-     or char_length(coalesce(p_phone, '')) < 6
-     or char_length(coalesce(p_address, '')) < 5
-     or jsonb_array_length(p_items) = 0
-     or p_total <= 0 then
+  if char_length(coalesce(p_name,'')) < 2 or char_length(coalesce(p_phone,'')) < 6
+     or char_length(coalesce(p_address,'')) < 5
+     or jsonb_array_length(coalesce(p_items,'[]'::jsonb)) = 0 then
     raise exception 'Invalid order payload';
   end if;
-
-  v_pay_method := coalesce(p_payment_method, 'cod');
-  if v_pay_method not in ('cod', 'bank_transfer', 'card') then
+  if coalesce(p_payment_method,'cod') not in ('cod','prepay') then
     raise exception 'Invalid payment method';
   end if;
-
-  -- Initial payment status by method
-  v_pay_status := case v_pay_method
-    when 'bank_transfer' then 'awaiting_verification'
-    when 'card' then 'pending'           -- admin sends payment link
-    else 'pending'                       -- COD: pay on delivery
-  end;
-
-  -- Buy 5 get 1 free
-  select coalesce(sum((it->>'qty')::int), 0) into v_total_qty
-    from jsonb_array_elements(p_items) it;
-  if v_total_qty >= 5 then
-    select min((it->>'price')::int) into v_cheapest
-      from jsonb_array_elements(p_items) it
-      where (it->>'price')::int > 0;
-    v_bulk_free := coalesce(v_cheapest, 0);
-    v_discount := v_discount + v_bulk_free;
-    v_free_used := v_bulk_free > 0;
+  if p_email is not null and length(trim(p_email)) > 0
+     and p_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+    raise exception 'Invalid email';
   end if;
 
-  -- Coupon
+  -- Business hours (Karachi, admin-set)
+  select value into v_hstart from public.site_settings where key='business_hours_start';
+  select value into v_hend   from public.site_settings where key='business_hours_end';
+  v_hstart := coalesce(v_hstart,'18:00'); v_hend := coalesce(v_hend,'23:00');
+  v_now := (now() at time zone 'Asia/Karachi')::time;
+  if v_now < v_hstart::time or v_now >= v_hend::time then
+    raise exception 'We are closed right now';
+  end if;
+
+  -- Subtotal from real menu prices; snapshot items with server-side name+price
+  for v_it in select value from jsonb_array_elements(p_items) loop
+    v_qty := coalesce((v_it->>'qty')::int, 0);
+    if v_qty <= 0 then raise exception 'Invalid item quantity'; end if;
+    select * into v_menu from public.menu_items where id = (v_it->>'id') and active = true;
+    if not found then raise exception 'Item not available'; end if;
+    v_subtotal  := v_subtotal + v_menu.price * v_qty;
+    v_total_qty := v_total_qty + v_qty;
+    v_items := v_items || jsonb_build_object('id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty);
+  end loop;
+  if v_subtotal <= 0 then raise exception 'Invalid order total'; end if;
+
+  -- Delivery fee (admin-set; optional free-over threshold)
+  select coalesce(value::int,0) into v_fee       from public.site_settings where key='delivery_fee';
+  select coalesce(value::int,0) into v_free_over  from public.site_settings where key='free_delivery_over';
+  v_fee := coalesce(v_fee,0); v_free_over := coalesce(v_free_over,0);
+  v_delivery := case when v_free_over > 0 and v_subtotal >= v_free_over then 0 else v_fee end;
+
+  -- Buy 5 get 1 free (cheapest item), server prices
+  if v_total_qty >= 5 then
+    select min((it->>'price')::int) into v_cheapest
+      from jsonb_array_elements(v_items) it where (it->>'price')::int > 0;
+    v_bulk_free := coalesce(v_cheapest,0);
+    v_discount := v_discount + v_bulk_free; v_free_used := v_bulk_free > 0;
+  end if;
+
+  -- Coupon (row-locked; validated against the SERVER subtotal)
   if p_coupon_code is not null and length(trim(p_coupon_code)) > 0 then
-    -- Lock the coupon row so concurrent orders can't exceed max_uses (Finding 16).
     perform 1 from public.coupons
-      where upper(code) = upper(p_coupon_code)
-        and (max_uses is null or used_count < max_uses)
-      for update;
+      where upper(code)=upper(p_coupon_code) and (max_uses is null or used_count<max_uses) for update;
     select computed_discount, code into v_coupon_disc, v_coupon
-      from public.validate_coupon(p_coupon_code, p_total, p_phone)
-      where ok = true;
-    if v_coupon is null then
-      raise exception 'Invalid or expired coupon';
-    end if;
+      from public.validate_coupon(p_coupon_code, v_subtotal, p_phone) where ok=true;
+    if v_coupon is null then raise exception 'Invalid or expired coupon'; end if;
     v_discount := v_discount + v_coupon_disc;
   end if;
 
-  -- Bank transfer: 5% off the subtotal, applied automatically
-  if v_pay_method = 'bank_transfer' then
-    v_discount := v_discount + round(p_total * 5 / 100.0);
+  -- Prepay discount (admin-controlled %)
+  if p_payment_method='prepay' then
+    select coalesce(value::int,0) into v_prepay_pct from public.site_settings where key='prepay_discount_percent';
+    v_discount := v_discount + round(v_subtotal * coalesce(v_prepay_pct,0) / 100.0);
   end if;
 
-  v_discount := least(v_discount, p_total);
+  v_discount := least(v_discount, v_subtotal);
+  v_pay_status := case when p_payment_method='prepay' then 'awaiting_verification' else 'pending' end;
 
-  -- Upsert loyalty
-  insert into public.loyalty (phone, name)
-    values (p_phone, p_name)
-    on conflict (phone) do update set name = excluded.name, updated_at = now()
+  insert into public.loyalty (phone, name) values (p_phone, p_name)
+    on conflict (phone) do update set name=excluded.name, updated_at=now()
     returning * into v_loyalty;
 
-  -- Insert order
   insert into public.orders (
-    customer_name, customer_phone, customer_address, notes, items, total,
-    coupon_code, discount, used_free_credit,
-    payment_method, payment_status, payment_proof_url
+    customer_name, customer_phone, alt_phone, email, customer_address, notes,
+    items, subtotal, delivery_fee, discount, total, coupon_code, used_free_credit,
+    payment_method, payment_status
   ) values (
-    p_name, p_phone, p_address, p_notes, p_items, p_total,
-    v_coupon, v_discount, v_free_used,
-    v_pay_method, v_pay_status, p_payment_proof_url
-  )
-  returning orders.id, orders.short_code into new_id, new_code;
+    p_name, p_phone, p_alt_phone, p_email, p_address, p_notes,
+    v_items, v_subtotal, v_delivery, v_discount, v_subtotal + v_delivery - v_discount,
+    v_coupon, v_free_used, p_payment_method, v_pay_status
+  ) returning orders.id, orders.short_code into new_id, new_code;
 
-  if v_coupon is not null then
-    update public.coupons set used_count = used_count + 1 where code = v_coupon;
-  end if;
-
-  update public.loyalty
-    set order_count = order_count + 1, updated_at = now()
-    where phone = p_phone
-    returning * into v_loyalty;
-
+  if v_coupon is not null then update public.coupons set used_count=used_count+1 where code=v_coupon; end if;
+  update public.loyalty set order_count=order_count+1, updated_at=now()
+    where phone=p_phone returning * into v_loyalty;
   v_referral_code := v_loyalty.referral_code;
 
-  return query select new_id, new_code, v_referral_code, v_discount, v_free_used, v_bulk_free;
+  if p_payment_method='prepay' then
+    select value into v_ptitle  from public.site_settings where key='prepay_title';
+    select value into v_pnumber from public.site_settings where key='prepay_number';
+  end if;
+
+  return query select new_id, new_code, v_referral_code,
+    v_subtotal, v_delivery, v_discount, v_subtotal + v_delivery - v_discount,
+    v_free_used, v_bulk_free, v_ptitle, v_pnumber;
 end;
 $$;
 
 grant execute on function public.place_order(
-  text, text, text, text, jsonb, int, text, boolean, text, text
+  text, text, text, text, text, text, jsonb, text, text
 ) to anon, authenticated;
 
 
--- Update track_order to also return payment info
+-- track_order — Spec #2: also returns prepay wallet details for an unverified
+-- prepay order (so the confirmation/tracker can show "pay here" across reloads).
 drop function if exists public.track_order(uuid);
 
 create or replace function public.track_order(order_id uuid)
@@ -663,7 +681,9 @@ returns table (
   payment_status text,
   payment_method text,
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  prepay_title text,
+  prepay_number text
 )
 language sql
 security definer
@@ -676,12 +696,35 @@ as $$
     o.payment_status,
     o.payment_method,
     o.created_at,
-    o.updated_at
+    o.updated_at,
+    case when o.payment_method = 'prepay' and o.payment_status <> 'verified'
+      then (select value from public.site_settings where key = 'prepay_title') end,
+    case when o.payment_method = 'prepay' and o.payment_status <> 'verified'
+      then (select value from public.site_settings where key = 'prepay_number') end
   from public.orders o
   where o.id = order_id;
 $$;
 
 grant execute on function public.track_order(uuid) to anon, authenticated;
+
+
+-- attach_payment_proof — Spec #2: lets an anon order-placer attach their payment
+-- screenshot AFTER placing a prepay order (the wallet number is only revealed
+-- post-order). SECURITY DEFINER so anon can update just this one order row.
+create or replace function public.attach_payment_proof(p_order_id uuid, p_url text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.orders
+     set payment_proof_url = p_url, payment_status = 'awaiting_verification'
+   where id = p_order_id and payment_method = 'prepay'
+     and payment_status in ('pending','awaiting_verification');
+end;
+$$;
+grant execute on function public.attach_payment_proof(uuid, text) to anon, authenticated;
 
 
 -- ============================================================
@@ -750,20 +793,15 @@ do $$ begin
 end $$;
 
 
--- Seed default site settings for bank account if missing
+-- Seed default site settings (Spec #2: prepay wallet + delivery + business hours).
 insert into public.site_settings (key, value) values
-  ('bank_name',         ''),
-  ('bank_account_title','Pasto by Aiman'),
-  ('bank_account_number',''),
-  ('bank_iban',         ''),
-  ('bank_branch_code',  ''),
-  ('payment_card_note', 'After you submit, we will WhatsApp you a secure payment link. Pay there and your order goes into the kitchen.'),
-  -- Delivery zone settings — Karachi center as placeholder.
-  -- Owner sets the real kitchen coordinates from admin.html → Site tab → Delivery zone.
-  ('kitchen_lat',       '24.8607'),
-  ('kitchen_lng',       '67.0011'),
-  ('delivery_radius_km','10'),
-  ('delivery_fee',      '250')
+  ('delivery_fee',            '250'),
+  ('free_delivery_over',      '0'),
+  ('prepay_discount_percent', '5'),
+  ('business_hours_start',    '18:00'),
+  ('business_hours_end',      '23:00'),
+  ('prepay_title',            'Pasto by Aiman'),
+  ('prepay_number',           '')
 on conflict (key) do nothing;
 
 
