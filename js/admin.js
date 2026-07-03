@@ -525,6 +525,12 @@ function renderOrderRow(o) {
       <div class="admin-row-foot">
         <div class="admin-row-sub">Placed ${fmtDate(o.created_at)}</div>
         <div class="admin-row-actions">
+          <button class="admin-action" data-order-action="whatsapp"
+            data-phone="${escapeHTML(o.customer_phone)}" data-name="${escapeHTML(o.customer_name)}" data-code="${escapeHTML(o.short_code)}"
+            title="Message the customer to confirm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            WhatsApp
+          </button>
           ${prev ? `
             <button class="admin-action secondary" onclick="actSetOrderStatus('${o.id}', '${prev}')" title="Move status back one step">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -1125,6 +1131,18 @@ document.addEventListener('click', (e) => {
   if (signupAction === 'whatsapp') whatsappOneSignup(phone || '', name || '', id);
   else if (signupAction === 'pending') toggleSignupNotified(id, false);
   else if (signupAction === 'delete') deleteSignup(id);
+});
+
+// Delegated handler for the "WhatsApp customer" button on order rows (Spec #2).
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-order-action="whatsapp"]');
+  if (!b) return;
+  let n = (b.dataset.phone || '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = '92' + n.slice(1); else if (!n.startsWith('92')) n = '92' + n;
+  const first = (b.dataset.name || '').split(' ')[0];
+  const msg = `Hi ${first}! Thanks for your Pasto order #${b.dataset.code}. `
+            + `We're confirming it now and will start cooking shortly. 🍝`;
+  window.open(`https://wa.me/${n}?text=${encodeURIComponent(msg)}`, '_blank');
 });
 
 function whatsappOneSignup(phone, name, id) {
