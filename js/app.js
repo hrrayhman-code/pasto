@@ -1939,6 +1939,25 @@ async function resumeTrackerIfActive() {
 // ==================================================
 // SETUP DYNAMIC LINKS FROM CONFIG
 // ==================================================
+// ----- Mobile hamburger nav -----
+function toggleMobileNav() {
+  const menu = document.getElementById('mobileNav');
+  const btn = document.getElementById('navHamburger');
+  if (!menu) return;
+  const opening = menu.hasAttribute('hidden');
+  if (opening) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', '');
+  if (btn) {
+    btn.classList.toggle('active', opening);
+    btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  }
+}
+function closeMobileNav() {
+  const menu = document.getElementById('mobileNav');
+  const btn = document.getElementById('navHamburger');
+  if (menu) menu.setAttribute('hidden', '');
+  if (btn) { btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); }
+}
+
 function setupConfigLinks() {
   // Foodpanda button
   const fpBtn = document.getElementById('foodpandaBtn');
