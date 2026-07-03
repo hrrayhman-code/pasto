@@ -789,9 +789,14 @@ function _parseHm(hm) {
   return { h: h || 0, m: m || 0 };
 }
 
+// Runtime business hours: default from js/config.js, overridden at page load
+// by the admin-set values in site_settings (business_hours_start/end).
+let _bizStart = CONFIG.businessHoursStart || '18:00';
+let _bizEnd   = CONFIG.businessHoursEnd   || '23:00';
+
 function isBusinessHours() {
-  const start = _parseHm(CONFIG.businessHoursStart || '18:00');
-  const end   = _parseHm(CONFIG.businessHoursEnd   || '23:00');
+  const start = _parseHm(_bizStart);
+  const end   = _parseHm(_bizEnd);
   if (!start || !end) return true; // if misconfigured, don't block
 
   const kt = _karachiNow();
@@ -808,7 +813,7 @@ function isBusinessHours() {
 }
 
 function minutesUntilOpen() {
-  const start = _parseHm(CONFIG.businessHoursStart || '18:00');
+  const start = _parseHm(_bizStart);
   if (!start) return null;
   const kt = _karachiNow();
   const curMins = kt.getUTCHours() * 60 + kt.getUTCMinutes();
@@ -827,8 +832,8 @@ function formatHhMmDisplay(hm) {
 }
 
 function openClosedModal() {
-  const startDisp = formatHhMmDisplay(CONFIG.businessHoursStart);
-  const endDisp   = formatHhMmDisplay(CONFIG.businessHoursEnd);
+  const startDisp = formatHhMmDisplay(_bizStart);
+  const endDisp   = formatHhMmDisplay(_bizEnd);
   const untilOpen = minutesUntilOpen();
 
   let statusHtml = `<div class="closed-hours">Hours: ${startDisp} – ${endDisp}</div>`;
@@ -1942,6 +1947,9 @@ async function loadMenuFromDB() {
 async function loadSiteSettings() {
   try {
     const settings = await SettingsAPI.getAll();
+    // Admin-controlled business hours override the config.js defaults.
+    if (settings.business_hours_start) _bizStart = settings.business_hours_start;
+    if (settings.business_hours_end)   _bizEnd   = settings.business_hours_end;
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {
