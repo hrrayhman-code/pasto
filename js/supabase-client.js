@@ -133,20 +133,29 @@ const ORDER_LABELS = {
 
 const OrdersAPI = {
   // ---------- Public: place a new order ----------
-  async place({ name, phone, address, notes, items, total, couponCode, useCredit, paymentMethod, paymentProofUrl }) {
+  async place({ name, phone, altPhone, email, address, notes, items, couponCode, paymentMethod }) {
+    // items = [{ id, qty }] — server recomputes name/price/total from menu_items.
     const { data, error } = await sb.rpc('place_order', {
-      p_name: name, p_phone: phone, p_address: address,
-      p_notes: notes || null,
-      p_items: items, p_total: total,
+      p_name: name, p_phone: phone,
+      p_alt_phone: altPhone || null, p_email: email || null,
+      p_address: address, p_notes: notes || null,
+      p_items: items,
       p_coupon_code: couponCode || null,
-      p_use_credit: !!useCredit,
-      p_payment_method: paymentMethod || 'cod',
-      p_payment_proof_url: paymentProofUrl || null
+      p_payment_method: paymentMethod || 'cod'
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error('No order returned from server');
     return row;
+  },
+
+  // Prepay: upload the screenshot AFTER placing (the wallet number is revealed
+  // post-order), then attach it to the order via a SECURITY DEFINER RPC.
+  async attachPaymentProof(orderId, file) {
+    const url = await this.uploadPaymentProof(file);
+    const { error } = await sb.rpc('attach_payment_proof', { p_order_id: orderId, p_url: url });
+    if (error) throw error;
+    return url;
   },
 
   // ---------- Public: upload payment proof screenshot ----------
