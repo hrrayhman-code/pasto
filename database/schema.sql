@@ -416,7 +416,8 @@ create policy "public_read_settings"
   to anon, authenticated
   using (key in (
     'delivery_fee','free_delivery_over','hero_image_url',
-    'business_hours_start','business_hours_end'
+    'business_hours_start','business_hours_end',
+    'kitchen_lat','kitchen_lng','delivery_radius_km'
   ));
 
 create policy "auth_settings_all"
@@ -810,7 +811,11 @@ insert into public.site_settings (key, value) values
   ('business_hours_start',    '18:00'),
   ('business_hours_end',      '23:00'),
   ('prepay_title',            'Pasto by Aiman'),
-  ('prepay_number',           '')
+  ('prepay_number',           ''),
+  -- Delivery-zone checker (advisory "do we deliver to you?" widget)
+  ('kitchen_lat',             '24.8607'),
+  ('kitchen_lng',             '67.0011'),
+  ('delivery_radius_km',      '10')
 on conflict (key) do nothing;
 
 

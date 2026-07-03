@@ -982,6 +982,9 @@ async function loadStoreSettings() {
     set('stFreeOver',     s.free_delivery_over || '');
     set('stHoursStart',   s.business_hours_start || '');
     set('stHoursEnd',     s.business_hours_end || '');
+    set('stKitchenLat',   s.kitchen_lat || '');
+    set('stKitchenLng',   s.kitchen_lng || '');
+    set('stRadius',       s.delivery_radius_km || '');
   } catch (err) {
     console.warn('load store settings failed', err);
   }
@@ -1001,7 +1004,10 @@ async function saveStoreSettings(e) {
       SettingsAPI.set('delivery_fee',            val('stDeliveryFee') || '0'),
       SettingsAPI.set('free_delivery_over',      val('stFreeOver') || '0'),
       SettingsAPI.set('business_hours_start',    val('stHoursStart') || '18:00'),
-      SettingsAPI.set('business_hours_end',      val('stHoursEnd') || '23:00')
+      SettingsAPI.set('business_hours_end',      val('stHoursEnd') || '23:00'),
+      SettingsAPI.set('kitchen_lat',             val('stKitchenLat') || '24.8607'),
+      SettingsAPI.set('kitchen_lng',             val('stKitchenLng') || '67.0011'),
+      SettingsAPI.set('delivery_radius_km',      val('stRadius') || '10')
     ]);
     showToast('Settings saved');
   } catch (err) {

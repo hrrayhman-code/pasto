@@ -395,6 +395,21 @@
               <input id="stHoursEnd" type="time">
             </div>
           </div>
+          <p class="coupons-sub" style="margin: 16px 0 8px;">Delivery-zone checker — where the homepage "do we deliver to you?" widget measures distance from. Long-press your kitchen in Google Maps to get its coordinates.</p>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="stKitchenLat">Kitchen latitude</label>
+              <input id="stKitchenLat" type="text" inputmode="decimal" placeholder="24.8607">
+            </div>
+            <div class="field">
+              <label for="stKitchenLng">Kitchen longitude</label>
+              <input id="stKitchenLng" type="text" inputmode="decimal" placeholder="67.0011">
+            </div>
+            <div class="field">
+              <label for="stRadius">Delivery radius (km)</label>
+              <input id="stRadius" type="number" min="1" step="0.5" placeholder="10">
+            </div>
+          </div>
           <div class="modal-foot" style="justify-content: flex-start;">
             <button type="submit" class="modal-submit">Save settings</button>
           </div>

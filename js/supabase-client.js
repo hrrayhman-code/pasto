@@ -48,13 +48,12 @@ const ReviewsAPI = {
       pinned: false,
       likes: 0
     };
-    const { data, error } = await sb
-      .from('reviews')
-      .insert(payload)
-      .select()
-      .single();
+    // No .select() read-back: anon can only read APPROVED reviews, so reading
+    // back the just-inserted PENDING row fails RLS and would surface as a
+    // false "try again" even though the insert succeeded.
+    const { error } = await sb.from('reviews').insert(payload);
     if (error) throw error;
-    return data;
+    return true;
   },
 
   // ---------- Likes (anon allowed via SECURITY DEFINER RPC) ----------
