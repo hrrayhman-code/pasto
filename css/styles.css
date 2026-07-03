@@ -3241,6 +3241,13 @@ body.noa-ringing {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Never exceed the screen — scroll inside if the content (steps + prepay
+     block + referral) is taller than the viewport, so nothing is cut off. */
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   animation: trackerSlideIn 0.4s cubic-bezier(.2,.8,.2,1.05);
 }
 @keyframes trackerSlideIn {
