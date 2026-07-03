@@ -586,13 +586,22 @@ begin
     raise exception 'Invalid email';
   end if;
 
-  -- Business hours (Karachi, admin-set)
+  -- Business hours (Karachi, admin-set). Handles windows that cross midnight,
+  -- e.g. 18:00-00:00 (6 PM to midnight) or 22:00-02:00.
   select value into v_hstart from public.site_settings where key='business_hours_start';
   select value into v_hend   from public.site_settings where key='business_hours_end';
   v_hstart := coalesce(v_hstart,'18:00'); v_hend := coalesce(v_hend,'23:00');
   v_now := (now() at time zone 'Asia/Karachi')::time;
-  if v_now < v_hstart::time or v_now >= v_hend::time then
-    raise exception 'We are closed right now';
+  if v_hstart::time <= v_hend::time then
+    -- same-day window (e.g. 18:00-23:00): open when start <= now < end
+    if v_now < v_hstart::time or v_now >= v_hend::time then
+      raise exception 'We are closed right now';
+    end if;
+  else
+    -- window crosses midnight (e.g. 18:00-00:00): open when now >= start OR now < end
+    if v_now < v_hstart::time and v_now >= v_hend::time then
+      raise exception 'We are closed right now';
+    end if;
   end if;
 
   -- Subtotal from real menu prices; snapshot items with server-side name+price
