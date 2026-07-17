@@ -586,6 +586,24 @@ begin
     raise exception 'Invalid email';
   end if;
 
+  -- Owner-controlled emergency pause: if the "ordering_paused" flag is
+  -- 'true' in site_settings, reject every order regardless of hours.
+  declare v_paused text;
+  begin
+    select value into v_paused from public.site_settings where key='ordering_paused';
+    if lower(coalesce(v_paused,'false')) = 'true' then
+      declare v_reason text;
+      begin
+        select value into v_reason from public.site_settings where key='ordering_paused_reason';
+        if v_reason is null or length(trim(v_reason)) = 0 then
+          raise exception 'Ordering is paused right now';
+        else
+          raise exception 'Ordering is paused: %', v_reason;
+        end if;
+      end;
+    end if;
+  end;
+
   -- Business hours (Karachi, admin-set). Handles windows that cross midnight,
   -- e.g. 18:00-00:00 (6 PM to midnight) or 22:00-02:00.
   select value into v_hstart from public.site_settings where key='business_hours_start';
@@ -821,6 +839,9 @@ insert into public.site_settings (key, value) values
   ('business_hours_end',      '23:00'),
   ('prepay_title',            'Pasto by Aiman'),
   ('prepay_number',           ''),
+  -- Pause-orders switch: owner can temporarily block checkout site-wide
+  ('ordering_paused',         'false'),
+  ('ordering_paused_reason',  ''),
   -- Delivery-zone checker (advisory "do we deliver to you?" widget)
   ('kitchen_lat',             '24.8607'),
   ('kitchen_lng',             '67.0011'),

@@ -337,7 +337,28 @@
           </div>
         </div>
 
-        <h4 class="site-subhead">Hero image</h4>
+        <h4 class="site-subhead">Order taking</h4>
+        <div class="pause-orders-card" id="pauseOrdersCard">
+          <div class="pause-orders-main">
+            <label class="pause-switch" for="pauseOrdersToggle">
+              <input type="checkbox" id="pauseOrdersToggle" onchange="togglePauseOrders()">
+              <span class="pause-switch-track"><span class="pause-switch-thumb"></span></span>
+            </label>
+            <div class="pause-orders-info">
+              <div class="pause-orders-status" id="pauseOrdersStatus">Ordering enabled</div>
+              <div class="pause-orders-desc">Flip this to temporarily block new orders (rush hour, ran out of an ingredient, closing early, etc.). Customers see a friendly notice on the site and can't check out until you switch it back on.</div>
+            </div>
+          </div>
+          <div class="field" style="margin-top: 12px;">
+            <label for="pauseReason">Reason shown to customers (optional)</label>
+            <input id="pauseReason" type="text" maxlength="140" placeholder="e.g. Fully booked for tonight — back tomorrow at 6 PM">
+            <div class="modal-foot" style="justify-content: flex-start; margin-top: 8px;">
+              <button type="button" class="btn btn-secondary" onclick="savePauseReason()">Save reason</button>
+            </div>
+          </div>
+        </div>
+
+        <h4 class="site-subhead" style="margin-top: 36px;">Hero image</h4>
         <div class="site-image-panel" id="siteImagePanel">
           <div class="site-image-current">
             <div class="site-image-current-label">Current hero image</div>

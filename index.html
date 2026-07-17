@@ -161,6 +161,20 @@
   </div>
 
   <!-- ============================================== -->
+  <!-- PAUSE BANNER                                   -->
+  <!-- Shown when the owner has toggled ordering off. -->
+  <!-- ============================================== -->
+  <div class="pause-banner" id="pauseBanner" hidden role="status" aria-live="polite">
+    <div class="pause-banner-inner">
+      <span class="pause-banner-icon" aria-hidden="true">🚫</span>
+      <span class="pause-banner-text">
+        <strong>We're not taking orders right now.</strong>
+        <span id="pauseBannerReason"></span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
   <!-- NAVIGATION                                     -->
   <!-- ============================================== -->
   <nav class="nav">
@@ -555,7 +569,7 @@
   <!-- ============================================== -->
   <!-- CART DRAWER                                    -->
   <!-- ============================================== -->
-  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal();"></div>
+  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal(); closePausedModal();"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-header">
       <div class="cart-title">Your order</div>
@@ -670,6 +684,23 @@
     </p>
     <div class="modal-foot">
       <button class="modal-submit" onclick="closeClosedModal()">Got it</button>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- PAUSED MODAL — owner has toggled ordering off  -->
+  <!-- ============================================== -->
+  <div class="modal closed-modal" id="pausedModal">
+    <div class="closed-modal-icon">🚫</div>
+    <h2 class="modal-title">Not taking orders right now</h2>
+    <p class="modal-sub" id="pausedModalMsg">
+      We've paused orders for a moment. Please try again shortly — we'll be back on very soon 🍝
+    </p>
+    <p class="closed-note">
+      Your cart is saved. As soon as we're back on, tap Place order and we'll get cooking.
+    </p>
+    <div class="modal-foot">
+      <button class="modal-submit" onclick="closePausedModal()">Got it</button>
     </div>
   </div>
 

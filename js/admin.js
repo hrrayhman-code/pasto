@@ -163,6 +163,7 @@ function showDashboard(session) {
   loadMenuItems();
   loadSiteImagePreview();
   loadStoreSettings();
+  loadPauseSettings();
   loadLaunchSignups();
   setupOrdersAutoRefresh();
   // Realtime push: get sound + notification the moment an order comes in
@@ -970,6 +971,58 @@ async function actPayStatus(id, status) {
     loadOrders();
   } catch (err) { showToast('Failed: ' + err.message); }
 }
+
+// ==================================================
+// PAUSE ORDERS — temporarily block checkout site-wide
+// ==================================================
+async function loadPauseSettings() {
+  try {
+    const s = await SettingsAPI.getAll();
+    const paused = String(s.ordering_paused || 'false').toLowerCase() === 'true';
+    const reason = s.ordering_paused_reason || '';
+    const toggle = document.getElementById('pauseOrdersToggle');
+    const reasonInput = document.getElementById('pauseReason');
+    if (toggle) toggle.checked = paused;
+    if (reasonInput) reasonInput.value = reason;
+    reflectPauseUI(paused);
+  } catch (err) {
+    console.warn('load pause settings failed', err);
+  }
+}
+
+function reflectPauseUI(paused) {
+  const card = document.getElementById('pauseOrdersCard');
+  const status = document.getElementById('pauseOrdersStatus');
+  if (card)   card.classList.toggle('is-paused', paused);
+  if (status) status.textContent = paused ? 'Ordering PAUSED' : 'Ordering enabled';
+}
+
+async function togglePauseOrders() {
+  const toggle = document.getElementById('pauseOrdersToggle');
+  const paused = !!(toggle && toggle.checked);
+  reflectPauseUI(paused);   // optimistic UI
+  try {
+    await SettingsAPI.set('ordering_paused', paused ? 'true' : 'false');
+    showToast(paused ? '🚫 Orders paused' : '✓ Orders resumed');
+  } catch (err) {
+    // Roll back on failure
+    if (toggle) toggle.checked = !paused;
+    reflectPauseUI(!paused);
+    showToast('Failed: ' + (err.message || 'could not update'));
+  }
+}
+
+async function savePauseReason() {
+  const reasonInput = document.getElementById('pauseReason');
+  const reason = (reasonInput?.value || '').trim();
+  try {
+    await SettingsAPI.set('ordering_paused_reason', reason);
+    showToast('Reason saved');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
+
 
 async function loadStoreSettings() {
   try {

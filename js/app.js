@@ -862,6 +862,73 @@ function closeClosedModal() {
 
 
 // ==================================================
+// PAUSE ORDERS
+// ==================================================
+// The owner can toggle "ordering_paused" in admin → Site tab. When on,
+// a red banner appears at the top of the customer site and any attempt
+// to check out shows the paused modal (with the owner's optional reason).
+// State is polled every 30 s so browsers already open pick up changes.
+// ==================================================
+
+let _pauseState = { paused: false, reason: '' };
+
+function isOrderingPaused() {
+  return !!_pauseState.paused;
+}
+
+function reflectPauseBanner() {
+  const banner = document.getElementById('pauseBanner');
+  const reasonEl = document.getElementById('pauseBannerReason');
+  if (!banner) return;
+  if (_pauseState.paused) {
+    banner.hidden = false;
+    if (reasonEl) {
+      reasonEl.textContent = _pauseState.reason
+        ? '  ' + _pauseState.reason
+        : '  Back on shortly — check again soon.';
+    }
+    document.body.classList.add('is-paused');
+  } else {
+    banner.hidden = true;
+    document.body.classList.remove('is-paused');
+  }
+}
+
+async function refreshPauseState() {
+  try {
+    const s = await SettingsAPI.getAll();
+    const paused = String(s.ordering_paused || 'false').toLowerCase() === 'true';
+    const reason = s.ordering_paused_reason || '';
+    _pauseState = { paused, reason };
+    reflectPauseBanner();
+  } catch (err) {
+    // Silently ignore — if we can't reach the API we just keep the
+    // last-known state (fail-open so ordering isn't accidentally
+    // blocked by a transient network glitch).
+    console.warn('[Pasto] Could not refresh pause state:', err);
+  }
+}
+
+function openPausedModal() {
+  const msg = document.getElementById('pausedModalMsg');
+  if (msg) {
+    msg.textContent = _pauseState.reason
+      ? _pauseState.reason
+      : "We've paused orders for a moment. Please try again shortly — we'll be back on very soon 🍝";
+  }
+  document.getElementById('pausedModal')?.classList.add('open');
+  document.getElementById('overlay')?.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePausedModal() {
+  document.getElementById('pausedModal')?.classList.remove('open');
+  document.getElementById('overlay')?.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+
+// ==================================================
 // PRE-LAUNCH MODE
 // ==================================================
 // Reads CONFIG.launchDate. While the current time is BEFORE the
@@ -1198,6 +1265,19 @@ function openCheckoutModal() {
     openLaunchModal();
     return;
   }
+  // Ordering paused takes priority over the business-hours check
+  // (owner can override normal hours to stop mid-service).
+  if (isOrderingPaused()) {
+    closeCart();
+    // Re-verify with the server in case we're on a stale cache, then
+    // decide whether to actually block (fresh check protects against
+    // an owner who has just resumed).
+    refreshPauseState().then(() => {
+      if (isOrderingPaused()) openPausedModal();
+      else openCheckoutModal();
+    });
+    return;
+  }
   if (!isBusinessHours()) {
     closeCart();
     openClosedModal();
@@ -1434,6 +1514,14 @@ function renderCheckoutTotal() {
 }
 
 async function submitOrder() {
+  // Re-check pause state fresh from the server so we don't submit an
+  // order the owner has just blocked between opening + submitting.
+  await refreshPauseState();
+  if (isOrderingPaused()) {
+    closeModal();
+    openPausedModal();
+    return;
+  }
   // Client-side hours gate (UX). place_order enforces it server-side too.
   if (!isBusinessHours()) {
     closeModal();
@@ -2014,6 +2102,12 @@ async function loadSiteSettings() {
     // Admin-controlled business hours override the config.js defaults.
     if (settings.business_hours_start) _bizStart = settings.business_hours_start;
     if (settings.business_hours_end)   _bizEnd   = settings.business_hours_end;
+    // Pause-orders state (reflected as a red banner and checkout block).
+    _pauseState = {
+      paused: String(settings.ordering_paused || 'false').toLowerCase() === 'true',
+      reason: settings.ordering_paused_reason || ''
+    };
+    reflectPauseBanner();
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {
@@ -2117,8 +2211,13 @@ document.addEventListener('DOMContentLoaded', () => {
       closeReviewModal();
       closeLaunchModal();
       closeClosedModal();
+      closePausedModal();
     }
   });
+
+  // Keep the pause banner in sync every 30 seconds so browsers that
+  // have been open all day pick up when the owner toggles it.
+  setInterval(refreshPauseState, 30 * 1000);
 
   // Smooth scroll for in-page anchor links
   document.querySelectorAll('a[href^="#"]').forEach(link => {
