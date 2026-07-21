@@ -375,12 +375,25 @@ const PREV_STATUS = {
 function setupOrdersAutoRefresh() {
   if (_ordersState.timer) { clearInterval(_ordersState.timer); _ordersState.timer = null; }
   if (_ordersState.autoRefresh) {
-    // Poll every 5 seconds. Combined with the deduping seen-set, this
-    // gives us a reliable fallback for when Realtime silently fails
-    // (which is common on mobile browsers with power management).
-    _ordersState.timer = setInterval(loadOrders, 5000);
+    // Poll every 60 seconds. Realtime handles the "new order arrives"
+    // case instantly via WebSocket — this poll is just a safety net
+    // in case Realtime drops. 5 s was pointlessly aggressive and cost
+    // a lot of Supabase egress.
+    _ordersState.timer = setInterval(loadOrders, 60000);
   }
 }
+
+// Pause the auto-refresh entirely when the tab isn't visible.
+// Massive egress saver — a PWA installed on your phone was polling
+// 24/7 in the background even when you weren't looking at it.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (_ordersState.timer) { clearInterval(_ordersState.timer); _ordersState.timer = null; }
+  } else {
+    setupOrdersAutoRefresh();
+    loadOrders();
+  }
+});
 
 // Track which order IDs we've already alerted for — so polling can
 // detect "new since last load" and fire the alert if Realtime is

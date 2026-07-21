@@ -1824,7 +1824,9 @@ function startOrderTracker(orderId) {
   hideOrderPill();
   pollTracker();
   if (_trackerTimer) clearInterval(_trackerTimer);
-  _trackerTimer = setInterval(pollTracker, 15000); // every 15s
+  // Poll every 30 s (was 15 s) — customers rarely need sub-30s
+  // tracker updates and this halves egress from the tracker.
+  _trackerTimer = setInterval(pollTracker, 30000);
 }
 
 function stopOrderTracker() {
@@ -1852,6 +1854,9 @@ function reopenTracker() {
 
 async function pollTracker() {
   if (!_trackerOrderId) return;
+  // Skip the network call when the tab isn't visible — customer can't
+  // see the tracker anyway, no point burning Supabase egress.
+  if (document.hidden) return;
   try {
     const row = await OrdersAPI.track(_trackerOrderId);
     if (!row) {
@@ -2268,9 +2273,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Keep the pause banner in sync every 30 seconds so browsers that
-  // have been open all day pick up when the owner toggles it.
-  setInterval(refreshPauseState, 30 * 1000);
+  // Keep the pause banner in sync every 2 minutes so browsers that
+  // have been open all day still pick up when the owner toggles it.
+  // Was 30 s — that's ~2880 requests/day per open tab which was a
+  // major cause of Supabase egress usage. 2 min = 720/day and skips
+  // silently while the tab is hidden.
+  setInterval(() => {
+    if (!document.hidden) refreshPauseState();
+  }, 2 * 60 * 1000);
 
   // Smooth scroll for in-page anchor links
   document.querySelectorAll('a[href^="#"]').forEach(link => {
