@@ -47,7 +47,7 @@ const CONFIG = {
   phoneDisplay: '0330 2811842',
 
   // Your Foodpanda restaurant page URL (update after creating account)
-  foodpandaURL: 'https://www.foodpanda.pk',
+  foodpandaURL: 'https://www.foodpanda.pk/restaurant/zizv/pasto-by-aiman',
 
   // Your Instagram handle (without the @)
   instagramHandle: 'pastobyaiman',
