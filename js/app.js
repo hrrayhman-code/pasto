@@ -2122,9 +2122,52 @@ async function loadSiteSettings() {
       }
       img.src = heroUrl;
     }
+
+    // Admin-uploaded background videos (Story / Rewards / Reviews / Services)
+    applySectionBgVideo('.story-section',   settings.bg_video_story);
+    applySectionBgVideo('.rewards-section', settings.bg_video_rewards);
+    applySectionBgVideo('.reviews-section', settings.bg_video_reviews);
+    applySectionBgVideo('.order-section',   settings.bg_video_services);
   } catch (err) {
     console.warn('[Pasto] Could not load site settings:', err);
   }
+}
+
+// Injects (or removes) a muted looping background video inside a
+// section wrapper. The video sits at low opacity behind the content.
+function applySectionBgVideo(sectionSelector, url) {
+  const section = document.querySelector(sectionSelector);
+  if (!section) return;
+
+  const existing = section.querySelector(':scope > .section-bg-video');
+
+  if (!url) {
+    // No video configured — remove any existing one and reset the flag
+    if (existing) existing.remove();
+    section.classList.remove('has-bg-video');
+    return;
+  }
+
+  if (existing) {
+    if (existing.getAttribute('src') !== url) existing.src = url;
+    return;
+  }
+
+  const video = document.createElement('video');
+  video.className = 'section-bg-video';
+  video.muted = true;
+  video.loop = true;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('muted', '');
+  video.setAttribute('preload', 'metadata');
+  video.setAttribute('aria-hidden', 'true');
+  video.src = url;
+  section.insertBefore(video, section.firstChild);
+  section.classList.add('has-bg-video');
+  // iOS Safari sometimes swallows the initial autoplay — poke it.
+  video.play().catch(() => {});
 }
 
 

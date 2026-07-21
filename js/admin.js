@@ -164,6 +164,7 @@ function showDashboard(session) {
   loadSiteImagePreview();
   loadStoreSettings();
   loadPauseSettings();
+  loadSectionVideos();
   loadLaunchSignups();
   setupOrdersAutoRefresh();
   // Realtime push: get sound + notification the moment an order comes in
@@ -1018,6 +1019,92 @@ async function savePauseReason() {
   try {
     await SettingsAPI.set('ordering_paused_reason', reason);
     showToast('Reason saved');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
+
+
+// ==================================================
+// SECTION BACKGROUND VIDEOS — Story / Rewards / Reviews / Services
+// ==================================================
+const SECTION_VIDEO_KEYS = {
+  story:    'bg_video_story',
+  rewards:  'bg_video_rewards',
+  reviews:  'bg_video_reviews',
+  services: 'bg_video_services'
+};
+
+function _paintVideoSlot(section, url) {
+  const preview = document.getElementById('vidPreview_' + section);
+  const empty   = document.getElementById('vidEmpty_' + section);
+  if (!preview || !empty) return;
+  if (url) {
+    preview.src = url;
+    preview.hidden = false;
+    empty.hidden = true;
+    // Kick off autoplay in the preview
+    preview.play().catch(() => {});
+  } else {
+    preview.hidden = true;
+    preview.removeAttribute('src');
+    empty.hidden = false;
+  }
+}
+
+async function loadSectionVideos() {
+  try {
+    const s = await SettingsAPI.getAll();
+    Object.entries(SECTION_VIDEO_KEYS).forEach(([section, key]) => {
+      _paintVideoSlot(section, s[key] || '');
+    });
+  } catch (err) {
+    console.warn('load section videos failed', err);
+  }
+}
+
+async function onSectionVideoFile(section) {
+  const input = document.getElementById('vidFile_' + section);
+  const file  = input?.files?.[0];
+  if (!file) return;
+
+  // Soft warning at 15 MB — anything much bigger will kill mobile bandwidth
+  if (file.size > 15 * 1024 * 1024) {
+    if (!confirm(
+      `That video is ${(file.size / 1024 / 1024).toFixed(1)} MB — customers on mobile will hate it.\n\n` +
+      `Recommended: compress to under 10 MB (there are free tools like Handbrake or Clideo).\n\n` +
+      `Upload anyway?`
+    )) {
+      input.value = '';
+      return;
+    }
+  }
+
+  const key = SECTION_VIDEO_KEYS[section];
+  if (!key) return;
+
+  showToast('Uploading video…');
+  try {
+    const url = await SettingsAPI.uploadSectionVideo(file, section);
+    await SettingsAPI.set(key, url);
+    _paintVideoSlot(section, url);
+    input.value = '';
+    showToast(`✓ ${section} video updated`);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed: ' + (err.message || 'upload error'));
+    input.value = '';
+  }
+}
+
+async function removeSectionVideo(section) {
+  const key = SECTION_VIDEO_KEYS[section];
+  if (!key) return;
+  if (!confirm(`Remove the ${section} background video?`)) return;
+  try {
+    await SettingsAPI.set(key, '');
+    _paintVideoSlot(section, '');
+    showToast(`${section} video removed`);
   } catch (err) {
     showToast('Failed: ' + (err.message || ''));
   }

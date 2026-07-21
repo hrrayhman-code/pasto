@@ -351,6 +351,21 @@ const SettingsAPI = {
     if (error) throw error;
     const { data: urlData } = sb.storage.from('site-images').getPublicUrl(path);
     return urlData.publicUrl;
+  },
+
+  // Upload a background video for a specific section (story/rewards/reviews/services).
+  // Uploads to the section-videos bucket and returns the public URL.
+  async uploadSectionVideo(file, section) {
+    if (!file) throw new Error('No file selected');
+    const safe = String(section || 'section').replace(/[^a-z0-9_-]/gi, '');
+    const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+    const path = `${safe}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage
+      .from('section-videos')
+      .upload(path, file, { cacheControl: '31536000', upsert: false });
+    if (error) throw error;
+    const { data: urlData } = sb.storage.from('section-videos').getPublicUrl(path);
+    return urlData.publicUrl;
   }
 };
 

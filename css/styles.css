@@ -256,6 +256,108 @@ a { color: inherit; text-decoration: none; }
 }
 .hero-visual.has-photo .hero-bowl { display: none; }
 
+/* ============================================
+   SECTION BACKGROUND VIDEO
+   (admin-uploaded, plays behind Story / Rewards / Reviews / Services)
+   ============================================ */
+.section-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.18;                /* soft — keeps text easily readable */
+  pointer-events: none;
+  user-select: none;
+}
+/* Any section with a video needs its content lifted above z-index 0 */
+.has-bg-video { position: relative; overflow: hidden; }
+.has-bg-video > .section-inner,
+.has-bg-video > .story-inner,
+.has-bg-video > .noodle-bg {
+  position: relative;
+  z-index: 1;
+}
+/* A subtle top-and-bottom fade so the video meets the neighbouring
+   sections cleanly instead of clipping at hard edges */
+.has-bg-video::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg,
+    rgba(255, 248, 240, 0.75) 0%,
+    rgba(255, 248, 240, 0.25) 12%,
+    rgba(255, 248, 240, 0.25) 88%,
+    rgba(255, 248, 240, 0.75) 100%);
+  pointer-events: none;
+}
+/* On dark-background sections tune the tint to charcoal instead */
+.contact-section.has-bg-video::before {
+  background: linear-gradient(180deg,
+    rgba(26, 26, 26, 0.7) 0%,
+    rgba(26, 26, 26, 0.35) 12%,
+    rgba(26, 26, 26, 0.35) 88%,
+    rgba(26, 26, 26, 0.7) 100%);
+}
+
+/* Admin — Section background videos grid */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.video-slot {
+  background: var(--cream);
+  border: 1.5px solid rgba(26, 26, 26, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.video-slot-label {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--charcoal);
+  letter-spacing: -0.01em;
+}
+.video-slot-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #000;
+}
+.video-slot-empty {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: var(--cream-dark);
+  border: 1.5px dashed rgba(26, 26, 26, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+.video-slot input[type="file"] { display: none; }
+.video-slot-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.video-slot-actions .btn {
+  flex: 1;
+  padding: 8px 12px !important;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
 .hero-mascot {
   position: absolute;
   top: -20px;

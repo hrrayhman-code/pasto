@@ -358,6 +358,55 @@
           </div>
         </div>
 
+        <h4 class="site-subhead" style="margin-top: 36px;">Section background videos</h4>
+        <p class="coupons-sub" style="margin-bottom: 16px;">Upload a short looping video (MP4 or WebM, muted, ideally under 10&nbsp;MB) to play in the background of each section. Videos display at low opacity behind the content so text stays readable. Leave empty to remove.</p>
+
+        <div class="video-grid" id="videoGrid">
+          <div class="video-slot" data-section="story">
+            <div class="video-slot-label">Story</div>
+            <video class="video-slot-preview" id="vidPreview_story" playsinline muted loop hidden></video>
+            <div class="video-slot-empty" id="vidEmpty_story">No video yet</div>
+            <input type="file" accept="video/mp4,video/webm" id="vidFile_story" onchange="onSectionVideoFile('story')">
+            <div class="video-slot-actions">
+              <label class="btn btn-secondary" for="vidFile_story">Upload / replace</label>
+              <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('story')">Remove</button>
+            </div>
+          </div>
+
+          <div class="video-slot" data-section="rewards">
+            <div class="video-slot-label">Rewards</div>
+            <video class="video-slot-preview" id="vidPreview_rewards" playsinline muted loop hidden></video>
+            <div class="video-slot-empty" id="vidEmpty_rewards">No video yet</div>
+            <input type="file" accept="video/mp4,video/webm" id="vidFile_rewards" onchange="onSectionVideoFile('rewards')">
+            <div class="video-slot-actions">
+              <label class="btn btn-secondary" for="vidFile_rewards">Upload / replace</label>
+              <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('rewards')">Remove</button>
+            </div>
+          </div>
+
+          <div class="video-slot" data-section="reviews">
+            <div class="video-slot-label">Reviews</div>
+            <video class="video-slot-preview" id="vidPreview_reviews" playsinline muted loop hidden></video>
+            <div class="video-slot-empty" id="vidEmpty_reviews">No video yet</div>
+            <input type="file" accept="video/mp4,video/webm" id="vidFile_reviews" onchange="onSectionVideoFile('reviews')">
+            <div class="video-slot-actions">
+              <label class="btn btn-secondary" for="vidFile_reviews">Upload / replace</label>
+              <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('reviews')">Remove</button>
+            </div>
+          </div>
+
+          <div class="video-slot" data-section="services">
+            <div class="video-slot-label">Services</div>
+            <video class="video-slot-preview" id="vidPreview_services" playsinline muted loop hidden></video>
+            <div class="video-slot-empty" id="vidEmpty_services">No video yet</div>
+            <input type="file" accept="video/mp4,video/webm" id="vidFile_services" onchange="onSectionVideoFile('services')">
+            <div class="video-slot-actions">
+              <label class="btn btn-secondary" for="vidFile_services">Upload / replace</label>
+              <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('services')">Remove</button>
+            </div>
+          </div>
+        </div>
+
         <h4 class="site-subhead" style="margin-top: 36px;">Hero image</h4>
         <div class="site-image-panel" id="siteImagePanel">
           <div class="site-image-current">

@@ -457,6 +457,22 @@ create policy "auth_write_site_images"
   using (bucket_id = 'site-images')
   with check (bucket_id = 'site-images');
 
+-- Section background videos (Story / Rewards / Reviews / Services)
+insert into storage.buckets (id, name, public)
+  values ('section-videos', 'section-videos', true) on conflict (id) do nothing;
+
+drop policy if exists "public_read_section_videos" on storage.objects;
+drop policy if exists "auth_write_section_videos"  on storage.objects;
+
+create policy "public_read_section_videos"
+  on storage.objects for select to anon, authenticated
+  using (bucket_id = 'section-videos');
+
+create policy "auth_write_section_videos"
+  on storage.objects for all to authenticated
+  using (bucket_id = 'section-videos')
+  with check (bucket_id = 'section-videos');
+
 
 -- ============================================================
 -- PAYMENTS — add method/status/proof columns to orders
@@ -842,6 +858,11 @@ insert into public.site_settings (key, value) values
   -- Pause-orders switch: owner can temporarily block checkout site-wide
   ('ordering_paused',         'false'),
   ('ordering_paused_reason',  ''),
+  -- Section background videos (uploaded via admin → Site tab)
+  ('bg_video_story',          ''),
+  ('bg_video_rewards',        ''),
+  ('bg_video_reviews',        ''),
+  ('bg_video_services',       ''),
   -- Delivery-zone checker (advisory "do we deliver to you?" widget)
   ('kitchen_lat',             '24.8607'),
   ('kitchen_lng',             '67.0011'),
