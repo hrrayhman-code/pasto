@@ -266,40 +266,43 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  z-index: 0;
-  opacity: 0.18;                /* soft — keeps text easily readable */
+  z-index: 1;
+  opacity: 0.45;                /* visible but soft — text stays legible with overlay */
   pointer-events: none;
   user-select: none;
 }
-/* Any section with a video needs its content lifted above z-index 0 */
+/* Any section with a video needs its content lifted above the video */
 .has-bg-video { position: relative; overflow: hidden; }
 .has-bg-video > .section-inner,
-.has-bg-video > .story-inner,
-.has-bg-video > .noodle-bg {
+.has-bg-video > .story-inner {
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
-/* A subtle top-and-bottom fade so the video meets the neighbouring
-   sections cleanly instead of clipping at hard edges */
-.has-bg-video::before {
+/* Push the decorative noodle backdrop below the video */
+.has-bg-video > .noodle-bg {
+  z-index: 0;
+  opacity: 0.35;
+}
+/* Readability layer over the video — a light cream veil */
+.has-bg-video::after {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   background: linear-gradient(180deg,
-    rgba(255, 248, 240, 0.75) 0%,
-    rgba(255, 248, 240, 0.25) 12%,
-    rgba(255, 248, 240, 0.25) 88%,
-    rgba(255, 248, 240, 0.75) 100%);
+    rgba(255, 248, 240, 0.55) 0%,
+    rgba(255, 248, 240, 0.30) 15%,
+    rgba(255, 248, 240, 0.30) 85%,
+    rgba(255, 248, 240, 0.55) 100%);
   pointer-events: none;
 }
-/* On dark-background sections tune the tint to charcoal instead */
-.contact-section.has-bg-video::before {
+/* On dark-background sections tune the veil to charcoal instead */
+.contact-section.has-bg-video::after {
   background: linear-gradient(180deg,
-    rgba(26, 26, 26, 0.7) 0%,
-    rgba(26, 26, 26, 0.35) 12%,
-    rgba(26, 26, 26, 0.35) 88%,
-    rgba(26, 26, 26, 0.7) 100%);
+    rgba(26, 26, 26, 0.60) 0%,
+    rgba(26, 26, 26, 0.35) 15%,
+    rgba(26, 26, 26, 0.35) 85%,
+    rgba(26, 26, 26, 0.60) 100%);
 }
 
 /* Admin — Section background videos grid */
