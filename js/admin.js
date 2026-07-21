@@ -1034,6 +1034,42 @@ const SECTION_VIDEO_KEYS = {
   reviews:  'bg_video_reviews',
   services: 'bg_video_services'
 };
+const SECTION_OPACITY_KEYS = {
+  story:    'bg_video_opacity_story',
+  rewards:  'bg_video_opacity_rewards',
+  reviews:  'bg_video_opacity_reviews',
+  services: 'bg_video_opacity_services'
+};
+
+// Live-update the preview's opacity as the owner drags the slider.
+function onOpacityInput(section) {
+  const slider  = document.getElementById('vidOpacity_' + section);
+  const label   = document.getElementById('vidOpacityVal_' + section);
+  const preview = document.getElementById('vidPreview_' + section);
+  if (!slider) return;
+  const pct = parseInt(slider.value, 10) || 0;
+  if (label)   label.textContent = pct + '%';
+  if (preview) preview.style.opacity = (pct / 100).toFixed(2);
+}
+
+// Persist the slider value after the user releases it (change event).
+let _opacitySaveTimers = {};
+async function saveOpacity(section) {
+  const slider = document.getElementById('vidOpacity_' + section);
+  const key = SECTION_OPACITY_KEYS[section];
+  if (!slider || !key) return;
+  const val = String(parseInt(slider.value, 10) || 0);
+  // Small debounce in case change fires rapidly
+  if (_opacitySaveTimers[section]) clearTimeout(_opacitySaveTimers[section]);
+  _opacitySaveTimers[section] = setTimeout(async () => {
+    try {
+      await SettingsAPI.set(key, val);
+      showToast(`${section} opacity: ${val}%`);
+    } catch (err) {
+      showToast('Failed: ' + (err.message || ''));
+    }
+  }, 150);
+}
 
 function _paintVideoSlot(section, url) {
   const preview = document.getElementById('vidPreview_' + section);
@@ -1057,6 +1093,17 @@ async function loadSectionVideos() {
     const s = await SettingsAPI.getAll();
     Object.entries(SECTION_VIDEO_KEYS).forEach(([section, key]) => {
       _paintVideoSlot(section, s[key] || '');
+    });
+    // Populate the per-section opacity sliders (default 45 if unset)
+    Object.entries(SECTION_OPACITY_KEYS).forEach(([section, key]) => {
+      const raw = s[key];
+      const pct = Number.isFinite(parseInt(raw, 10)) ? parseInt(raw, 10) : 45;
+      const slider  = document.getElementById('vidOpacity_' + section);
+      const label   = document.getElementById('vidOpacityVal_' + section);
+      const preview = document.getElementById('vidPreview_' + section);
+      if (slider)  slider.value = pct;
+      if (label)   label.textContent = pct + '%';
+      if (preview) preview.style.opacity = (pct / 100).toFixed(2);
     });
   } catch (err) {
     console.warn('load section videos failed', err);

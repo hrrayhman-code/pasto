@@ -371,6 +371,11 @@
               <label class="btn btn-secondary" for="vidFile_story">Upload / replace</label>
               <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('story')">Remove</button>
             </div>
+            <div class="video-slot-opacity">
+              <label for="vidOpacity_story">Opacity <strong id="vidOpacityVal_story">45%</strong></label>
+              <input type="range" id="vidOpacity_story" min="0" max="100" step="5" value="45"
+                     oninput="onOpacityInput('story')" onchange="saveOpacity('story')">
+            </div>
           </div>
 
           <div class="video-slot" data-section="rewards">
@@ -381,6 +386,11 @@
             <div class="video-slot-actions">
               <label class="btn btn-secondary" for="vidFile_rewards">Upload / replace</label>
               <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('rewards')">Remove</button>
+            </div>
+            <div class="video-slot-opacity">
+              <label for="vidOpacity_rewards">Opacity <strong id="vidOpacityVal_rewards">45%</strong></label>
+              <input type="range" id="vidOpacity_rewards" min="0" max="100" step="5" value="45"
+                     oninput="onOpacityInput('rewards')" onchange="saveOpacity('rewards')">
             </div>
           </div>
 
@@ -393,6 +403,11 @@
               <label class="btn btn-secondary" for="vidFile_reviews">Upload / replace</label>
               <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('reviews')">Remove</button>
             </div>
+            <div class="video-slot-opacity">
+              <label for="vidOpacity_reviews">Opacity <strong id="vidOpacityVal_reviews">45%</strong></label>
+              <input type="range" id="vidOpacity_reviews" min="0" max="100" step="5" value="45"
+                     oninput="onOpacityInput('reviews')" onchange="saveOpacity('reviews')">
+            </div>
           </div>
 
           <div class="video-slot" data-section="services">
@@ -403,6 +418,11 @@
             <div class="video-slot-actions">
               <label class="btn btn-secondary" for="vidFile_services">Upload / replace</label>
               <button type="button" class="btn btn-secondary" onclick="removeSectionVideo('services')">Remove</button>
+            </div>
+            <div class="video-slot-opacity">
+              <label for="vidOpacity_services">Opacity <strong id="vidOpacityVal_services">45%</strong></label>
+              <input type="range" id="vidOpacity_services" min="0" max="100" step="5" value="45"
+                     oninput="onOpacityInput('services')" onchange="saveOpacity('services')">
             </div>
           </div>
         </div>

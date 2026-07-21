@@ -863,6 +863,11 @@ insert into public.site_settings (key, value) values
   ('bg_video_rewards',        ''),
   ('bg_video_reviews',        ''),
   ('bg_video_services',       ''),
+  -- Per-section opacity, stored as 0-100 (percent). Default 45.
+  ('bg_video_opacity_story',    '45'),
+  ('bg_video_opacity_rewards',  '45'),
+  ('bg_video_opacity_reviews',  '45'),
+  ('bg_video_opacity_services', '45'),
   -- Delivery-zone checker (advisory "do we deliver to you?" widget)
   ('kitchen_lat',             '24.8607'),
   ('kitchen_lng',             '67.0011'),

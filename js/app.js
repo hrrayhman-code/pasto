@@ -2124,29 +2124,39 @@ async function loadSiteSettings() {
     }
 
     // Admin-uploaded background videos (Story / Rewards / Reviews / Services)
-    applySectionBgVideo('.story-section',   settings.bg_video_story);
-    applySectionBgVideo('.rewards-section', settings.bg_video_rewards);
-    applySectionBgVideo('.reviews-section', settings.bg_video_reviews);
-    applySectionBgVideo('.order-section',   settings.bg_video_services);
+    // Second arg = opacity as 0..1, from bg_video_opacity_* settings (0-100).
+    const _pct = (raw, dflt = 45) => {
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) / 100 : dflt / 100;
+    };
+    applySectionBgVideo('.story-section',   settings.bg_video_story,    _pct(settings.bg_video_opacity_story));
+    applySectionBgVideo('.rewards-section', settings.bg_video_rewards,  _pct(settings.bg_video_opacity_rewards));
+    applySectionBgVideo('.reviews-section', settings.bg_video_reviews,  _pct(settings.bg_video_opacity_reviews));
+    applySectionBgVideo('.order-section',   settings.bg_video_services, _pct(settings.bg_video_opacity_services));
   } catch (err) {
     console.warn('[Pasto] Could not load site settings:', err);
   }
 }
 
 // Injects (or removes) a muted looping background video inside a
-// section wrapper. The video sits at low opacity behind the content.
-function applySectionBgVideo(sectionSelector, url) {
+// section wrapper. The video sits at admin-configured opacity behind
+// the content. Opacity is a 0..1 float; falls back to 0.45.
+function applySectionBgVideo(sectionSelector, url, opacity = 0.45) {
   const section = document.querySelector(sectionSelector);
   if (!section) return;
 
   const existing = section.querySelector(':scope > .section-bg-video');
 
   if (!url) {
-    // No video configured — remove any existing one and reset the flag
     if (existing) existing.remove();
     section.classList.remove('has-bg-video');
+    section.style.removeProperty('--section-bg-opacity');
     return;
   }
+
+  // Push the opacity as a CSS variable on the section so styles.css
+  // can pick it up without a class-per-value.
+  section.style.setProperty('--section-bg-opacity', String(opacity));
 
   if (existing) {
     if (existing.getAttribute('src') !== url) existing.src = url;
