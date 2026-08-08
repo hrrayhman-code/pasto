@@ -140,11 +140,16 @@ function renderMenu() {
   if (!grid) return;
   grid.innerHTML = MENU.map(item => {
     const cat = menuItemCategory(item);
+    const hasPhoto = !!item.imageUrl;
+    const visualAttrs = hasPhoto
+      ? ` has-photo" data-photo="${escapeHTML(item.imageUrl)}" data-name="${escapeHTML(item.name)}" role="button" tabindex="0" aria-label="View photo of ${escapeHTML(item.name)}`
+      : '';
     return `
     <div class="menu-card" data-id="${escapeHTML(item.id)}" data-cat="${cat}">
-      <div class="menu-card-visual">
+      <div class="menu-card-visual${visualAttrs}">
         <span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>
         ${dishVisual(item)}
+        ${hasPhoto ? '<span class="menu-card-zoom" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></span>' : ''}
       </div>
       <div class="menu-card-body">
         <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
@@ -159,6 +164,43 @@ function renderMenu() {
   observeReveals();
   // Re-apply the currently selected category filter after a re-render.
   filterMenuCategory(_activeMenuCat, null);
+
+  // Delegated: tapping a dish photo opens the lightbox (idempotent).
+  grid.onclick = (e) => {
+    const vis = e.target.closest('.menu-card-visual.has-photo');
+    if (!vis) return;
+    openDishLightbox(vis.getAttribute('data-photo'), vis.getAttribute('data-name'));
+  };
+  grid.onkeydown = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const vis = e.target.closest('.menu-card-visual.has-photo');
+    if (!vis) return;
+    e.preventDefault();
+    openDishLightbox(vis.getAttribute('data-photo'), vis.getAttribute('data-name'));
+  };
+}
+
+// ----- Dish photo lightbox -----
+function openDishLightbox(url, name) {
+  if (!url) return;
+  const box = document.getElementById('dishLightbox');
+  const img = document.getElementById('dishLightboxImg');
+  const cap = document.getElementById('dishLightboxCaption');
+  if (!box || !img) return;
+  img.src = url;
+  img.alt = name || 'Dish photo';
+  if (cap) cap.textContent = name || '';
+  box.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDishLightbox() {
+  const box = document.getElementById('dishLightbox');
+  if (!box) return;
+  box.hidden = true;
+  const img = document.getElementById('dishLightboxImg');
+  if (img) img.src = '';
+  document.body.style.overflow = '';
 }
 
 // Active menu category ('all' | 'pasta' | 'sides')
@@ -2316,6 +2358,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeLaunchModal();
       closeClosedModal();
       closePausedModal();
+      closeDishLightbox();
     }
   });
 
