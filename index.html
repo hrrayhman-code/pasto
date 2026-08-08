@@ -184,10 +184,9 @@
       </a>
       <div class="nav-links">
         <a href="#menu">Menu</a>
-        <a href="#story">Story</a>
-        <a href="#rewards">Rewards</a>
         <a href="#reviews">Reviews</a>
-        <a href="#order">Services</a>
+        <a href="#rewards">Rewards</a>
+        <a href="#order">More ways to order</a>
         <a href="#contact">Contact</a>
         <button class="nav-cart empty" id="navCart" onclick="openCart()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -204,10 +203,9 @@
     </div>
     <div class="mobile-nav" id="mobileNav" hidden>
       <a href="#menu" onclick="closeMobileNav()">Menu</a>
-      <a href="#story" onclick="closeMobileNav()">Story</a>
-      <a href="#rewards" onclick="closeMobileNav()">Rewards</a>
       <a href="#reviews" onclick="closeMobileNav()">Reviews</a>
-      <a href="#order" onclick="closeMobileNav()">Services</a>
+      <a href="#rewards" onclick="closeMobileNav()">Rewards</a>
+      <a href="#order" onclick="closeMobileNav()">More ways to order</a>
       <a href="#contact" onclick="closeMobileNav()">Contact</a>
     </div>
   </nav>
@@ -216,74 +214,34 @@
   <!-- HERO SECTION                                   -->
   <!-- Edit text content directly here                -->
   <!-- ============================================== -->
-  <section class="hero">
+  <section class="hero hero-compact">
     <div class="noodle-bg"></div>
-    <div class="hero-inner">
-      <div>
-        <div class="hero-eyebrow">Karachi · est. 2026</div>
-        <h1 class="hero-title">Pasta the way it <em>should</em> be made.</h1>
-        <p class="hero-sub">Freshly cooked, slow simmered, made to order. Three signature pastas, two sides, real ingredients only. Delivered hot across Karachi.</p>
-        <!-- Hero launch badge — auto-hides after launch date -->
-        <div class="hero-launch-badge" id="heroLaunchBadge" hidden>
-          <span class="hero-launch-icon">🍝</span>
-          <span class="hero-launch-text">
-            <strong>Opening 1st July 2026</strong>
-            <span class="hero-launch-sub" id="heroLaunchSub">Get notified when we go live</span>
-          </span>
-          <button class="hero-launch-btn" onclick="openLaunchModal()">Notify me</button>
-        </div>
-        <div class="hero-cta-row">
-          <a href="#menu" class="btn btn-primary">
-            See the menu
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-          </a>
-          <a href="#story" class="btn btn-secondary">Our story</a>
-        </div>
+    <div class="hero-compact-inner">
+      <div class="hero-eyebrow">🍝 Fresh pasta · delivered hot in Karachi</div>
+      <h1 class="hero-title">Order fresh, made-to-order pasta.</h1>
+      <p class="hero-sub">Signature Alfredo, Pink Sauce &amp; more — cooked when you order, delivered hot. Cash, card or bank transfer.</p>
+
+      <!-- Hero launch badge — auto-hides after launch date -->
+      <div class="hero-launch-badge" id="heroLaunchBadge" hidden>
+        <span class="hero-launch-icon">🍝</span>
+        <span class="hero-launch-text">
+          <strong>Opening 1st July 2026</strong>
+          <span class="hero-launch-sub" id="heroLaunchSub">Get notified when we go live</span>
+        </span>
+        <button class="hero-launch-btn" onclick="openLaunchModal()">Notify me</button>
       </div>
-      <div class="hero-visual">
-        <svg class="hero-bowl" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="200" cy="200" r="180" fill="#FFF8F0" stroke="#1A1A1A" stroke-width="2.5"/>
-          <ellipse cx="200" cy="200" rx="150" ry="40" fill="#E63946" opacity="0.15"/>
-          <ellipse cx="200" cy="200" rx="150" ry="40" fill="none" stroke="#1A1A1A" stroke-width="1.5"/>
-          <g stroke="#E63946" stroke-width="6" fill="none" stroke-linecap="round">
-            <path d="M 80 195 Q 130 175 180 195 Q 230 215 280 195 Q 310 185 320 190"/>
-            <path d="M 90 205 Q 140 230 200 210 Q 250 195 310 215"/>
-            <path d="M 95 190 Q 150 165 210 185 Q 270 205 315 185"/>
-            <path d="M 100 215 Q 160 235 220 215 Q 280 200 320 210"/>
-            <path d="M 110 200 Q 170 220 230 200 Q 290 185 318 195"/>
-          </g>
-          <g fill="#2d6a3f">
-            <ellipse cx="140" cy="190" rx="6" ry="3" transform="rotate(-30 140 190)"/>
-            <ellipse cx="240" cy="195" rx="5" ry="3" transform="rotate(20 240 195)"/>
-            <ellipse cx="180" cy="210" rx="6" ry="3" transform="rotate(-15 180 210)"/>
-          </g>
-          <g fill="#E63946">
-            <circle cx="160" cy="205" r="4"/>
-            <circle cx="260" cy="200" r="3.5"/>
-            <circle cx="210" cy="218" r="3"/>
-          </g>
-        </svg>
-        <svg class="hero-mascot" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-          <g transform="translate(15, 25)">
-            <path d="M 30 22 Q 58 16 67 38 Q 75 58 57 69 Q 39 78 28 64 Q 21 51 34 45 Q 47 41 50 54 Q 50 63 41 63"
-                  fill="none" stroke="#E63946" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
-            <g opacity="0.6">
-              <path d="M 36 13 Q 39 6 36 0 Q 33 -3 36 -9" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-              <path d="M 54 12 Q 57 4 54 -2 Q 51 -6 54 -10" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-            </g>
-          </g>
-        </svg>
-        <svg class="hero-stamp" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <path id="stampCircle" d="M 70,70 m -55,0 a 55,55 0 1,1 110,0 a 55,55 0 1,1 -110,0"/>
-          </defs>
-          <circle cx="70" cy="70" r="65" fill="none" stroke="#1A1A1A" stroke-width="1"/>
-          <circle cx="70" cy="70" r="55" fill="none" stroke="#1A1A1A" stroke-width="0.5"/>
-          <text font-family="DM Sans, sans-serif" font-size="9" font-weight="700" fill="#1A1A1A" letter-spacing="3">
-            <textPath href="#stampCircle">REAL INGREDIENTS · REAL PASTA · KARACHI · </textPath>
-          </text>
-          <text x="70" y="76" text-anchor="middle" font-family="Fraunces, serif" font-style="italic" font-size="22" font-weight="500" fill="#E63946">fresh</text>
-        </svg>
+
+      <div class="hero-cta-row">
+        <a href="#menu" class="btn btn-primary hero-order-btn">
+          Order now
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        </a>
+      </div>
+
+      <div class="hero-trust">
+        <span class="hero-trust-item">✔ Made to order</span>
+        <span class="hero-trust-item">✔ Delivered hot</span>
+        <span class="hero-trust-item">✔ 5% off on bank transfer</span>
       </div>
     </div>
   </section>
@@ -294,110 +252,21 @@
   <!-- Edit prices/items in js/config.js              -->
   <!-- ============================================== -->
   <section class="menu-section" id="menu">
-    <div class="noodle-bg"></div>
     <div class="section-inner">
-      <div class="section-header reveal">
+      <div class="section-header menu-header reveal">
         <div class="section-eyebrow">— the menu —</div>
-        <h2 class="section-title">Small menu. <em>Big flavor.</em></h2>
-        <p class="section-sub">We make five things. We make them properly. No frozen sauces, no shortcuts, nothing from a jar.</p>
+        <h2 class="section-title">Pick your pasta. <em>We'll cook it fresh.</em></h2>
       </div>
-      <div class="menu-scroller">
-        <div class="menu-grid" id="menuGrid">
-          <!-- Menu cards rendered dynamically -->
-        </div>
-        <div class="menu-controls" id="menuControls">
-          <!-- FORK = previous -->
-          <button class="menu-nav menu-nav-prev" id="menuArrowLeft" aria-label="Previous items" title="Previous">
-            <svg class="utensil utensil-fork" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 7v3"/>
-              <path d="M6 7v3"/>
-              <path d="M9 7v3"/>
-              <path d="M3 10h6"/>
-              <path d="M6 10v11"/>
-            </svg>
-          </button>
 
-          <!-- SPAGHETTI STRAND with TOMATO thumb -->
-          <div class="menu-progress" id="menuProgress" role="progressbar" aria-label="Menu scroll position">
-            <svg class="menu-progress-noodle" viewBox="0 0 240 12" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M0,6 Q5,1 10,6 T20,6 T30,6 T40,6 T50,6 T60,6 T70,6 T80,6 T90,6 T100,6 T110,6 T120,6 T130,6 T140,6 T150,6 T160,6 T170,6 T180,6 T190,6 T200,6 T210,6 T220,6 T230,6 T240,6"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-            </svg>
-            <div class="menu-progress-thumb" id="menuProgressThumb" aria-hidden="true">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <!-- tomato body -->
-                <circle cx="12" cy="13.5" r="8" fill="#E63946" stroke="#1A1A1A" stroke-width="1.4"/>
-                <!-- highlight -->
-                <ellipse cx="9" cy="11" rx="2" ry="1.2" fill="rgba(255,255,255,0.45)"/>
-                <!-- leaf / stem -->
-                <path d="M8 5.5 Q12 1.5 16 5.5 Q14 7 12 6.5 Q10 7 8 5.5 Z" fill="#2d6a3f" stroke="#1A1A1A" stroke-width="1.2" stroke-linejoin="round"/>
-                <path d="M12 6.5 V8" stroke="#1A1A1A" stroke-width="1" stroke-linecap="round"/>
-              </svg>
-            </div>
-          </div>
-
-          <!-- KNIFE = next -->
-          <button class="menu-nav menu-nav-next" id="menuArrowRight" aria-label="Next items" title="Next">
-            <svg class="utensil utensil-knife" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <!-- handle -->
-              <rect x="3" y="10" width="6" height="4" rx="1.2"/>
-              <!-- blade -->
-              <path d="M9 10 L21 12 L9 14 Z" fill="currentColor" fill-opacity="0.15"/>
-            </svg>
-          </button>
-        </div>
-        <div class="menu-scroll-hint" id="menuScrollHint">
-          <span>Swipe to explore the menu</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-        </div>
+      <!-- Sticky category tabs -->
+      <div class="menu-cats" id="menuCats" role="tablist" aria-label="Menu categories">
+        <button class="menu-cat active" data-cat="all"   role="tab" onclick="filterMenuCategory('all', this)">All</button>
+        <button class="menu-cat"        data-cat="pasta" role="tab" onclick="filterMenuCategory('pasta', this)">Pastas</button>
+        <button class="menu-cat"        data-cat="sides" role="tab" onclick="filterMenuCategory('sides', this)">Sides</button>
       </div>
-    </div>
-  </section>
 
-  <!-- ============================================== -->
-  <!-- STORY SECTION                                  -->
-  <!-- ============================================== -->
-  <section class="story-section" id="story">
-    <div class="noodle-bg"></div>
-    <div class="story-inner reveal">
-      <p class="story-quote">"In Italy, <em>nonna</em> doesn't open a jar. She opens her pantry —  flour, eggs, tomatoes, garlic, cheese — and she makes the meal. That's all we do."</p>
-      <div class="story-divider"></div>
-      <p class="story-text">Pasto started in a home kitchen in Karachi with a simple goal: serving fresh, flavorful pasta made with quality ingredients. Every order is prepared fresh, our sauces are cooked with care, and meals are packed hot so they arrive warm and ready to enjoy.</p>
-      <p class="story-text">We're small. We're new. We're cooking out of a home kitchen for now. But we think you can taste the difference, and we think you'll keep coming back.</p>
-    </div>
-  </section>
-
-  <!-- ============================================== -->
-  <!-- VALUES SECTION                                 -->
-  <!-- ============================================== -->
-  <section class="values-section">
-    <div class="noodle-bg"></div>
-    <div class="section-inner">
-      <div class="section-header reveal">
-        <div class="section-eyebrow" style="color: var(--red)">— why pasto —</div>
-        <h2 class="section-title">No shortcuts. <em>Ever.</em></h2>
-      </div>
-      <div class="values-grid">
-        <div class="value-card reveal">
-          <div class="value-num">01</div>
-          <h3 class="value-title">Freshly Made</h3>
-          <p class="value-text">Every order is prepared fresh using quality ingredients and cooked with care.</p>
-        </div>
-        <div class="value-card reveal">
-          <div class="value-num">02</div>
-          <h3 class="value-title">Real sauces</h3>
-          <p class="value-text">Our sauces are made with real cream, cheese, herbs, and tomatoes for rich flavor in every bite.</p>
-        </div>
-        <div class="value-card reveal">
-          <div class="value-num">03</div>
-          <h3 class="value-title">Hot when it arrives</h3>
-          <p class="value-text">We pack in heat-retaining aluminum containers so your pasta stays warm from our kitchen to your door.</p>
-        </div>
-        <div class="value-card reveal">
-          <div class="value-num">04</div>
-          <h3 class="value-title">Made-to-order only</h3>
-          <p class="value-text">We don't pre-cook anything. Every order is fired fresh. Slightly longer wait, significantly better food.</p>
-        </div>
+      <div class="menu-grid" id="menuGrid">
+        <!-- Menu items rendered dynamically as vertical list rows -->
       </div>
     </div>
   </section>
@@ -491,19 +360,19 @@
     <div class="noodle-bg"></div>
     <div class="section-inner">
       <div class="section-header reveal">
-        <div class="section-eyebrow">— our services —</div>
-        <h2 class="section-title">Three ways <em>to enjoy Pasto.</em></h2>
-        <p class="section-sub">Add items to your cart and check out via WhatsApp, or order through Foodpanda. Cash on delivery in most areas of Karachi.</p>
+        <div class="section-eyebrow">— more ways to order —</div>
+        <h2 class="section-title">Prefer another way? <em>We've got you.</em></h2>
+        <p class="section-sub">The fastest way is right here on the site — add to cart and check out. Or use Foodpanda or a quick call.</p>
       </div>
       <div class="order-options">
         <div class="order-card featured reveal">
           <div class="order-card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           </div>
-          <h3 class="order-card-title">Order via WhatsApp</h3>
-          <p class="order-card-desc">Build your order using our cart, check out, and your order is sent to our WhatsApp instantly. We confirm and dispatch within minutes. Cash on delivery.</p>
+          <h3 class="order-card-title">Order right here</h3>
+          <p class="order-card-desc">Add pastas and sides to your cart, pick delivery, pay by cash, card or bank transfer. Track your order live. It's the quickest way to eat.</p>
           <button class="btn btn-primary" onclick="document.getElementById('menu').scrollIntoView({behavior:'smooth'})" style="align-self: flex-start;">
-            Start ordering
+            Go to menu
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
           </button>
         </div>
@@ -565,6 +434,20 @@
     <div style="margin-bottom: 8px;">Pasto · <em>real ingredients, real pasta.</em> · Karachi</div>
     <div>© 2026 Pasto. Made with care in a home kitchen.</div>
   </footer>
+
+  <!-- ============================================== -->
+  <!-- STICKY VIEW-CART BAR (shows when cart has items) -->
+  <!-- ============================================== -->
+  <button class="cart-bar" id="cartBar" hidden onclick="openCart()" aria-label="View cart and check out">
+    <span class="cart-bar-left">
+      <span class="cart-bar-badge" id="cartBarCount">0</span>
+      <span class="cart-bar-label">View cart</span>
+    </span>
+    <span class="cart-bar-right">
+      <span class="cart-bar-total" id="cartBarTotal">Rs. 0</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+    </span>
+  </button>
 
   <!-- ============================================== -->
   <!-- CART DRAWER                                    -->

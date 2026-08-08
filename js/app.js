@@ -128,24 +128,53 @@ function updateAllMenuCardControls() {
   });
 }
 
+// Derive a simple category for the menu tabs: "sides" for sides,
+// otherwise "pasta". Robust to missing/renamed tags.
+function menuItemCategory(item) {
+  const label = String(item.tagLabel || '').toLowerCase();
+  return (label === 'side' || label === 'sides') ? 'sides' : 'pasta';
+}
+
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
-  grid.innerHTML = MENU.map(item => `
-    <div class="menu-card reveal" data-id="${escapeHTML(item.id)}">
+  if (!grid) return;
+  grid.innerHTML = MENU.map(item => {
+    const cat = menuItemCategory(item);
+    return `
+    <div class="menu-card" data-id="${escapeHTML(item.id)}" data-cat="${cat}">
       <div class="menu-card-visual">
         <span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>
         ${dishVisual(item)}
       </div>
-      <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
-      <p class="menu-card-desc">${escapeHTML(item.desc)}</p>
-      <div class="menu-card-foot">
-        <div class="menu-price"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price}</div>
-        <div class="menu-card-control">${menuCardControlHTML(item.id)}</div>
+      <div class="menu-card-body">
+        <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
+        <p class="menu-card-desc">${escapeHTML(item.desc)}</p>
+        <div class="menu-card-foot">
+          <div class="menu-price"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price}</div>
+          <div class="menu-card-control">${menuCardControlHTML(item.id)}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   observeReveals();
-  setupMenuScroller();
+  // Re-apply the currently selected category filter after a re-render.
+  filterMenuCategory(_activeMenuCat, null);
+}
+
+// Active menu category ('all' | 'pasta' | 'sides')
+let _activeMenuCat = 'all';
+
+function filterMenuCategory(cat, btnEl) {
+  _activeMenuCat = cat || 'all';
+  // Toggle the active tab styling
+  document.querySelectorAll('.menu-cat').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-cat') === _activeMenuCat);
+  });
+  // Show/hide cards
+  document.querySelectorAll('.menu-card[data-cat]').forEach(card => {
+    const show = _activeMenuCat === 'all' || card.getAttribute('data-cat') === _activeMenuCat;
+    card.style.display = show ? '' : 'none';
+  });
 }
 
 
@@ -1162,6 +1191,23 @@ function updateCartCount() {
   document.getElementById('cartCount').textContent = count;
   document.getElementById('navCart').classList.toggle('empty', count === 0);
   document.getElementById('checkoutBtn').disabled = count === 0;
+  updateCartBar(count);
+}
+
+// Sticky bottom "View cart" bar — visible only when the cart has items.
+function updateCartBar(count) {
+  const bar = document.getElementById('cartBar');
+  if (!bar) return;
+  const n = (count === undefined) ? cartItemCount() : count;
+  if (n > 0) {
+    document.getElementById('cartBarCount').textContent = n;
+    document.getElementById('cartBarTotal').textContent = `${CONFIG.currency} ${cartTotal()}`;
+    bar.hidden = false;
+    document.body.classList.add('has-cart-bar');
+  } else {
+    bar.hidden = true;
+    document.body.classList.remove('has-cart-bar');
+  }
 }
 
 function renderCart() {
