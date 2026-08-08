@@ -146,10 +146,12 @@ function renderMenu() {
       : '';
     return `
     <div class="menu-card" data-id="${escapeHTML(item.id)}" data-cat="${cat}">
-      <div class="menu-card-visual${visualAttrs}">
-        <span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>
-        ${dishVisual(item)}
-        ${hasPhoto ? '<span class="menu-card-zoom" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></span>' : ''}
+      <div class="menu-card-media">
+        ${item.tagLabel ? `<span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>` : ''}
+        <div class="menu-card-visual${visualAttrs}">
+          ${dishVisual(item)}
+          ${hasPhoto ? '<span class="menu-card-zoom" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></span>' : ''}
+        </div>
       </div>
       <div class="menu-card-body">
         <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
