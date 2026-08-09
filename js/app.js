@@ -135,6 +135,19 @@ function menuItemCategory(item) {
   return (label === 'side' || label === 'sides') ? 'sides' : 'pasta';
 }
 
+// Price markup for a menu card — shows struck-through original + new
+// price when a menu-wide discount is active.
+function menuPriceHTML(item) {
+  const disc = unitDiscount(item.price);
+  if (disc > 0) {
+    return `<div class="menu-price has-discount">
+      <span class="menu-price-old">${CONFIG.currency} ${item.price}</span>
+      <span class="menu-price-new"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price - disc}</span>
+    </div>`;
+  }
+  return `<div class="menu-price"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price}</div>`;
+}
+
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
   if (!grid) return;
@@ -157,7 +170,7 @@ function renderMenu() {
         <h3 class="menu-card-title">${escapeHTML(item.name)}</h3>
         <p class="menu-card-desc">${escapeHTML(item.desc)}</p>
         <div class="menu-card-foot">
-          <div class="menu-price"><span class="menu-price-currency">${CONFIG.currency}</span>${item.price}</div>
+          ${menuPriceHTML(item)}
           <div class="menu-card-control">${menuCardControlHTML(item.id)}</div>
         </div>
       </div>
@@ -1451,6 +1464,12 @@ function menuWideDiscount() {
   if (pct <= 0) return 0;
   return Math.round(cartTotal() * pct / 100);
 }
+// Per-unit discount amount for showing old/new price on menu cards.
+function unitDiscount(price) {
+  const pct = Number(_menuDiscount.pct) || 0;
+  if (pct <= 0) return 0;
+  return Math.round((Number(price) || 0) * pct / 100);
+}
 
 // Show/hide the festive promo banner and keep totals in sync.
 function reflectMenuDiscount() {
@@ -1468,7 +1487,8 @@ function reflectMenuDiscount() {
       banner.innerHTML = '';
     }
   }
-  // Refresh any visible totals
+  // Re-render menu cards (to show/hide old-vs-new prices) + refresh totals
+  try { renderMenu(); } catch (_) {}
   try { renderCart(); } catch (_) {}
   try { renderCheckoutTotal(); } catch (_) {}
 }

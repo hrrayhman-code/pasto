@@ -1070,6 +1070,26 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
   font-family: var(--sans);
 }
 
+/* Discounted price: old struck-through + new highlighted */
+.menu-price.has-discount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.menu-price-old {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.menu-price-new {
+  color: #0b6b3a;
+  font-weight: 600;
+}
+.menu-price-new .menu-price-currency { color: #0b6b3a; opacity: 0.75; }
+
 .add-btn {
   background: var(--charcoal);
   color: var(--cream);
