@@ -164,6 +164,7 @@ function showDashboard(session) {
   loadSiteImagePreview();
   loadStoreSettings();
   loadPauseSettings();
+  loadMenuDiscount();
   loadSectionVideos();
   loadLaunchSignups();
   setupOrdersAutoRefresh();
@@ -985,6 +986,68 @@ async function actPayStatus(id, status) {
     loadOrders();
   } catch (err) { showToast('Failed: ' + err.message); }
 }
+
+// ==================================================
+// MENU-WIDE DISCOUNT — % off the whole menu (not delivery)
+// ==================================================
+async function loadMenuDiscount() {
+  try {
+    const s = await SettingsAPI.getAll();
+    const pct = parseInt(s.menu_discount_percent, 10) || 0;
+    const label = s.menu_discount_label || '';
+    const pctEl = document.getElementById('menuDiscPct');
+    const lblEl = document.getElementById('menuDiscLabel');
+    if (pctEl) pctEl.value = pct || '';
+    if (lblEl) lblEl.value = label;
+    reflectDiscountUI(pct, label);
+  } catch (err) {
+    console.warn('load menu discount failed', err);
+  }
+}
+
+function reflectDiscountUI(pct, label) {
+  const card = document.getElementById('discountCard');
+  const status = document.getElementById('discountStatus');
+  const on = pct > 0;
+  if (card) card.classList.toggle('is-active', on);
+  if (status) status.textContent = on
+    ? `Active · ${pct}% off${label ? ' · "' + label + '"' : ''}`
+    : 'No discount active';
+}
+
+async function saveMenuDiscount() {
+  const pct = Math.max(0, Math.min(90, parseInt(document.getElementById('menuDiscPct').value, 10) || 0));
+  const label = (document.getElementById('menuDiscLabel').value || '').trim();
+  try {
+    await SettingsAPI.set('menu_discount_percent', String(pct));
+    await SettingsAPI.set('menu_discount_label', label);
+    reflectDiscountUI(pct, label);
+    showToast(pct > 0 ? `✓ ${pct}% menu discount applied` : 'Discount removed');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
+
+async function removeMenuDiscount() {
+  try {
+    await SettingsAPI.set('menu_discount_percent', '0');
+    await SettingsAPI.set('menu_discount_label', '');
+    document.getElementById('menuDiscPct').value = '';
+    document.getElementById('menuDiscLabel').value = '';
+    reflectDiscountUI(0, '');
+    showToast('Discount removed');
+  } catch (err) {
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
+
+async function applyIndependenceDayPreset() {
+  const label = '🇵🇰 Independence Day — 14% off the whole menu';
+  document.getElementById('menuDiscPct').value = 14;
+  document.getElementById('menuDiscLabel').value = label;
+  await saveMenuDiscount();
+}
+
 
 // ==================================================
 // PAUSE ORDERS — temporarily block checkout site-wide

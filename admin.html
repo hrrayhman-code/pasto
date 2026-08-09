@@ -358,6 +358,30 @@
           </div>
         </div>
 
+        <h4 class="site-subhead" style="margin-top: 36px;">Menu-wide discount</h4>
+        <div class="discount-card" id="discountCard">
+          <p class="coupons-sub" style="margin-bottom:14px;">
+            Apply a percentage off the <strong>whole menu</strong> whenever you want (delivery fee is never discounted).
+            Set it to 0 to remove the offer. The label shows as a festive banner on the site.
+          </p>
+          <div class="discount-status" id="discountStatus">No discount active</div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="menuDiscPct">Discount %</label>
+              <input id="menuDiscPct" type="number" min="0" max="90" step="1" placeholder="0">
+            </div>
+            <div class="field" style="flex:2; min-width:220px;">
+              <label for="menuDiscLabel">Offer label (shown to customers)</label>
+              <input id="menuDiscLabel" type="text" maxlength="80" placeholder="e.g. 🇵🇰 Independence Day — 14% off the whole menu">
+            </div>
+          </div>
+          <div class="modal-foot" style="justify-content:flex-start; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="saveMenuDiscount()">Apply discount</button>
+            <button type="button" class="btn btn-secondary" onclick="removeMenuDiscount()">Remove discount</button>
+            <button type="button" class="btn btn-secondary" onclick="applyIndependenceDayPreset()">🇵🇰 Independence Day (14%)</button>
+          </div>
+        </div>
+
         <h4 class="site-subhead" style="margin-top: 36px;">Section background videos</h4>
         <p class="coupons-sub" style="margin-bottom: 16px;">Upload a short looping video (MP4 or WebM, muted, ideally under 10&nbsp;MB) to play in the background of each section. Videos display at low opacity behind the content so text stays readable. Leave empty to remove.</p>
 

@@ -585,6 +585,7 @@ declare
   v_delivery int := 0; v_fee int := 0; v_free_over int := 0;
   v_discount int := 0; v_bulk_free int := 0; v_free_used boolean := false;
   v_coupon text := null; v_coupon_disc int := 0; v_prepay_pct int := 0;
+  v_menu_disc_pct int := 0;
   v_hstart text; v_hend text; v_now time;
   v_loyalty public.loyalty%rowtype; v_referral_code text;
   v_pay_status text; v_ptitle text := null; v_pnumber text := null;
@@ -678,6 +679,13 @@ begin
   if p_payment_method='prepay' then
     select coalesce(value::int,0) into v_prepay_pct from public.site_settings where key='prepay_discount_percent';
     v_discount := v_discount + round(v_subtotal * coalesce(v_prepay_pct,0) / 100.0);
+  end if;
+
+  -- Menu-wide discount (admin-controlled %, applies to the menu subtotal
+  -- only — never the delivery fee, which is added separately below).
+  select coalesce(value::int,0) into v_menu_disc_pct from public.site_settings where key='menu_discount_percent';
+  if coalesce(v_menu_disc_pct,0) > 0 then
+    v_discount := v_discount + round(v_subtotal * v_menu_disc_pct / 100.0);
   end if;
 
   v_discount := least(v_discount, v_subtotal);
@@ -858,6 +866,10 @@ insert into public.site_settings (key, value) values
   -- Pause-orders switch: owner can temporarily block checkout site-wide
   ('ordering_paused',         'false'),
   ('ordering_paused_reason',  ''),
+  -- Menu-wide discount: percent off the whole menu subtotal (never delivery).
+  -- 0 = no discount. Label is the offer text shown to customers.
+  ('menu_discount_percent',   '0'),
+  ('menu_discount_label',     ''),
   -- Section background videos (uploaded via admin → Site tab)
   ('bg_video_story',          ''),
   ('bg_video_rewards',        ''),

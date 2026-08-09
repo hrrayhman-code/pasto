@@ -1312,12 +1312,13 @@ function renderCart() {
     body.innerHTML = itemsHTML + rewardHTML;
   }
 
-  // Cart total now reflects buy-5-get-1-free
+  // Cart total reflects buy-5-get-1-free + admin menu-wide discount
   const subtotal = cartTotal();
   const bulk = bulkFreeDiscount();
-  const payable = Math.max(0, subtotal - bulk.amount);
+  const menuDisc = menuWideDiscount();
+  const payable = Math.max(0, subtotal - bulk.amount - menuDisc);
   const totalEl = document.getElementById('cartTotal');
-  if (bulk.qualifies) {
+  if (bulk.qualifies || menuDisc > 0) {
     totalEl.innerHTML = `
       <span class="cart-total-strike">${CONFIG.currency} ${subtotal}</span>
       ${CONFIG.currency} ${payable}
@@ -1440,6 +1441,36 @@ const BANK_TRANSFER_DISCOUNT_PCT = 5;
 function bankTransferDiscount() {
   if (selectedPayMethod() !== 'bank_transfer') return 0;
   return Math.round(cartTotal() * BANK_TRANSFER_DISCOUNT_PCT / 100);
+}
+
+// Admin-controlled menu-wide discount (% off the menu subtotal, never delivery).
+// Mirrors the server rule in place_order.
+let _menuDiscount = { pct: 0, label: '' };
+function menuWideDiscount() {
+  const pct = Number(_menuDiscount.pct) || 0;
+  if (pct <= 0) return 0;
+  return Math.round(cartTotal() * pct / 100);
+}
+
+// Show/hide the festive promo banner and keep totals in sync.
+function reflectMenuDiscount() {
+  const banner = document.getElementById('promoBanner');
+  const pct = Number(_menuDiscount.pct) || 0;
+  if (banner) {
+    if (pct > 0) {
+      const label = _menuDiscount.label || `${pct}% OFF the whole menu`;
+      banner.innerHTML =
+        `<span class="promo-banner-badge">${pct}% OFF</span>` +
+        `<span class="promo-banner-text">${escapeHTML(label)}</span>`;
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+      banner.innerHTML = '';
+    }
+  }
+  // Refresh any visible totals
+  try { renderCart(); } catch (_) {}
+  try { renderCheckoutTotal(); } catch (_) {}
 }
 
 function onPayMethodChange() {
@@ -1578,12 +1609,17 @@ function renderCheckoutTotal() {
   const bulk = bulkFreeDiscount();                              // auto buy-5-get-1-free
   const couponDisc = _appliedCoupon?.computed_discount || 0;
   const bankDisc = bankTransferDiscount();                      // 5% if paying via bank
+  const menuDisc = menuWideDiscount();                          // admin menu-wide % (subtotal only)
   const deliveryFee = applicableDeliveryFee();                  // Rs.250 if in-zone confirmed
-  const totalDisc = Math.min(total, bulk.amount + couponDisc + bankDisc);
+  const totalDisc = Math.min(total, bulk.amount + couponDisc + bankDisc + menuDisc);
   const itemsPayable = Math.max(0, total - totalDisc);
   const grandTotal = itemsPayable + deliveryFee;
 
   const lines = [`<div class="ct-line"><span>Subtotal</span><span>${CONFIG.currency} ${total}</span></div>`];
+  if (menuDisc > 0) {
+    const lbl = _menuDiscount.label ? escapeHTML(_menuDiscount.label) : `${_menuDiscount.pct}% off menu`;
+    lines.push(`<div class="ct-line ct-disc"><span>${lbl}</span><span>− ${CONFIG.currency} ${menuDisc}</span></div>`);
+  }
   if (bulk.qualifies && bulk.amount > 0) {
     lines.push(`<div class="ct-line ct-disc"><span>★ Free ${escapeHTML(bulk.freeItem.name)} (5+ items)</span><span>− ${CONFIG.currency} ${bulk.amount}</span></div>`);
   }
@@ -2203,6 +2239,12 @@ async function loadSiteSettings() {
       reason: settings.ordering_paused_reason || ''
     };
     reflectPauseBanner();
+    // Menu-wide discount (percent off menu subtotal + festive banner).
+    _menuDiscount = {
+      pct: parseInt(settings.menu_discount_percent, 10) || 0,
+      label: settings.menu_discount_label || ''
+    };
+    reflectMenuDiscount();
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {
