@@ -596,261 +596,28 @@ function renderContactLinks() {
 // CART OPERATIONS
 // ==================================================
 // ==================================================
-// DELIVERY ZONE CHECK
+// DELIVERY FEE
 // ==================================================
-// A non-blocking floating widget that asks for the user's
-// geolocation, calculates their distance from the kitchen,
-// and tells them whether we can deliver.
-//
-// State is persisted in localStorage:
-//   pastoDeliveryCheck = { status, distanceKm, ts }
-//   pastoDeliveryDismissed = boolean (user closed widget)
+// A flat delivery fee is added to every order. The amount is
+// configurable from admin.html → Site tab (delivery_fee),
+// defaulting to Rs. 250. The old geolocation zone-check has
+// been removed.
 // ==================================================
 
-const LS_DELIVERY = 'pastoDeliveryCheck';
-const LS_DELIVERY_DISMISSED = 'pastoDeliveryDismissed';
-
-// How long the widget stays hidden after the user closes it before
-// popping back up. Only applies when location hasn't been resolved yet.
-const DELIVERY_REAPPEAR_MS = 3000;
-
-// How long a resolved (in_zone / out_of_zone) result is considered
-// "fresh" before we ask the customer again. Set to 6 hours — same
-// browsing session won't be re-prompted, but a return visit later
-// (e.g. lunch -> dinner, or the next day) will see a fresh prompt.
-const DELIVERY_RESULT_TTL_MS = 6 * 60 * 60 * 1000;
-
-let _deliveryReappearTimer = null;
-
-// Returns true when the saved zone result is still recent enough
-// that we shouldn't pester the customer.
-function isDeliveryResultFresh() {
-  const s = getDeliveryState();
-  if (!s || (s.status !== 'in_zone' && s.status !== 'out_of_zone')) return false;
-  if (!s.ts) return false;
-  return (Date.now() - s.ts) < DELIVERY_RESULT_TTL_MS;
-}
-
-// Defaults — overridden at runtime by site_settings from Supabase.
-// Owner sets the real kitchen coordinates from admin.html → Site tab.
-let DELIVERY = {
-  kitchenLat: 24.8607,
-  kitchenLng: 67.0011,
-  radiusKm: 10,
-  fee: 250
-};
-
-// Haversine formula: great-circle distance between two lat/lng points in km.
-function haversineKm(lat1, lng1, lat2, lng2) {
-  const R = 6371; // Earth's mean radius in km
-  const toRad = (deg) => deg * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2
-          + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function getDeliveryState() {
-  return lsGet(LS_DELIVERY, null);
-}
-
-function setDeliveryState(state) {
-  lsSet(LS_DELIVERY, { ...state, ts: Date.now() });
-}
-
-function clearDeliveryState() {
-  localStorage.removeItem(LS_DELIVERY);
-}
-
-function isInDeliveryZone() {
-  const s = getDeliveryState();
-  if (!s || s.status !== 'in_zone') return false;
-  // Treat stale results as unknown so we re-check rather than charge
-  // a delivery fee on an outdated zone assumption.
-  if (s.ts && (Date.now() - s.ts) >= DELIVERY_RESULT_TTL_MS) return false;
-  return true;
-}
+// Default fee; overridden at runtime by delivery_fee in site_settings.
+let DELIVERY = { fee: 250 };
 
 function applicableDeliveryFee() {
-  // Charge the delivery fee only when geolocation has confirmed in-zone.
-  // (For users who didn't share location, no auto-fee — admin handles
-  // manually based on the address they typed.)
-  return isInDeliveryZone() ? DELIVERY.fee : 0;
+  // Flat delivery fee added to every order (configurable from
+  // admin.html → Site tab via delivery_fee; defaults to Rs. 250).
+  return DELIVERY.fee;
 }
 
-// ----- Widget rendering -----
-function renderDeliveryWidget() {
-  const widget = document.getElementById('deliveryWidget');
-  const body = document.getElementById('deliveryWidgetBody');
-  if (!widget || !body) return;
-
-  const state = getDeliveryState();
-  widget.hidden = false;
-
-  if (!state) {
-    // First-time prompt
-    body.innerHTML = `
-      <div class="dw-icon">📍</div>
-      <div class="dw-title">Do we deliver to you?</div>
-      <div class="dw-text">
-        We deliver within ${DELIVERY.radiusKm} km of our kitchen.
-        Allow location and we'll check instantly.
-      </div>
-      <div class="dw-actions">
-        <button class="dw-btn dw-btn-primary" onclick="requestDeliveryCheck()">Check now</button>
-        <button class="dw-btn dw-btn-ghost" onclick="dismissDeliveryWidget()">Later</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (state.status === 'checking') {
-    body.innerHTML = `
-      <div class="dw-icon">⏳</div>
-      <div class="dw-title">Locating you…</div>
-      <div class="dw-text">Allow location access in your browser.</div>
-    `;
-    return;
-  }
-
-  if (state.status === 'in_zone') {
-    body.innerHTML = `
-      <div class="dw-icon">✅</div>
-      <div class="dw-title">We deliver to you!</div>
-      <div class="dw-text">
-        <strong>${state.distanceKm.toFixed(1)} km</strong> away · standard delivery fee
-        <strong>${CONFIG.currency} ${DELIVERY.fee}</strong> applies.
-      </div>
-      <div class="dw-actions">
-        <button class="dw-btn dw-btn-primary" onclick="dismissDeliveryWidget()">Got it</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (state.status === 'out_of_zone') {
-    const inquireMsg = `Hi! I'd like to order from Pasto but I'm ${state.distanceKm.toFixed(1)} km away (outside the standard ${DELIVERY.radiusKm} km zone). Could you deliver to me as an exception?`;
-    const inquireUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(inquireMsg)}`;
-    body.innerHTML = `
-      <div class="dw-icon">⚠️</div>
-      <div class="dw-title">Slightly out of range</div>
-      <div class="dw-text">
-        You're <strong>${state.distanceKm.toFixed(1)} km</strong> away.
-        Our standard zone is ${DELIVERY.radiusKm} km — but message us, we might be able to make an exception 🍝
-      </div>
-      <div class="dw-actions">
-        <a class="dw-btn dw-btn-primary" href="${inquireUrl}" target="_blank" rel="noopener">WhatsApp us</a>
-        <button class="dw-btn dw-btn-ghost" onclick="dismissDeliveryWidget()">Close</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (state.status === 'denied' || state.status === 'error') {
-    body.innerHTML = `
-      <div class="dw-icon">📍</div>
-      <div class="dw-title">Location not shared</div>
-      <div class="dw-text">
-        No worries — you can still order. We'll confirm delivery to your address before cooking.
-      </div>
-      <div class="dw-actions">
-        <button class="dw-btn dw-btn-primary" onclick="requestDeliveryCheck()">Try again</button>
-        <button class="dw-btn dw-btn-ghost" onclick="dismissDeliveryWidget()">Got it</button>
-      </div>
-    `;
-    return;
-  }
-}
-
-function requestDeliveryCheck() {
-  if (!navigator.geolocation) {
-    setDeliveryState({ status: 'error' });
-    renderDeliveryWidget();
-    return;
-  }
-  setDeliveryState({ status: 'checking' });
-  renderDeliveryWidget();
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const distanceKm = haversineKm(lat, lng, DELIVERY.kitchenLat, DELIVERY.kitchenLng);
-      const status = distanceKm <= DELIVERY.radiusKm ? 'in_zone' : 'out_of_zone';
-      setDeliveryState({ status, distanceKm, lat, lng });
-      renderDeliveryWidget();
-      // If the user happens to be in checkout, refresh the total
-      renderCheckoutTotal();
-      renderCart();
-    },
-    (err) => {
-      const status = err.code === 1 ? 'denied' : 'error';
-      setDeliveryState({ status });
-      renderDeliveryWidget();
-    },
-    { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 }
-  );
-}
-
-function dismissDeliveryWidget() {
-  // Hide the widget immediately
-  const w = document.getElementById('deliveryWidget');
-  if (w) w.hidden = true;
-
-  // If they've already shared location AND the result is still fresh
-  // (within TTL), don't pester them further this session. The widget
-  // will re-appear on a future visit once the TTL elapses.
-  if (isDeliveryResultFresh()) return;
-
-  // Otherwise: they dismissed without sharing location. Bring the
-  // widget back in DELIVERY_REAPPEAR_MS so we keep asking.
-  if (_deliveryReappearTimer) clearTimeout(_deliveryReappearTimer);
-  _deliveryReappearTimer = setTimeout(() => {
-    // Clear any stale "denied" / "error" / "checking" state so the
-    // widget shows the initial prompt fresh, not a recovery message.
-    const cur = getDeliveryState();
-    if (cur && (cur.status === 'denied' || cur.status === 'error' || cur.status === 'checking')) {
-      clearDeliveryState();
-    }
-    renderDeliveryWidget();
-  }, DELIVERY_REAPPEAR_MS);
-}
-
-// Show the widget after a short delay, so it doesn't crash the first paint.
-function initDeliveryWidget() {
-  // Load delivery settings from Supabase (overrides defaults)
+// Load the flat delivery fee from Supabase site_settings (overrides default).
+function loadDeliveryFee() {
   SettingsAPI.getAll().then(s => {
-    if (s.kitchen_lat)         DELIVERY.kitchenLat = parseFloat(s.kitchen_lat) || DELIVERY.kitchenLat;
-    if (s.kitchen_lng)         DELIVERY.kitchenLng = parseFloat(s.kitchen_lng) || DELIVERY.kitchenLng;
-    if (s.delivery_radius_km)  DELIVERY.radiusKm   = parseFloat(s.delivery_radius_km) || DELIVERY.radiusKm;
-    if (s.delivery_fee)        DELIVERY.fee        = parseInt(s.delivery_fee, 10) || DELIVERY.fee;
-  }).catch(() => { /* fall back to defaults */ });
-
-  // If the customer's zone was checked recently (within the TTL —
-  // currently 6 hours), don't ask again. They're in the middle of
-  // a session and already know their result.
-  // Once the TTL elapses, the stale result is cleared and we ask
-  // fresh (handles "they ordered at lunch, come back at dinner" or
-  // "they checked yesterday, come back today").
-  if (isDeliveryResultFresh()) {
-    document.getElementById('deliveryWidgetClose')?.addEventListener('click', dismissDeliveryWidget);
-    return;
-  }
-
-  // If the stored state is stale (older than TTL), wipe it so the
-  // widget shows the friendly initial prompt, not a recovery message.
-  const state = getDeliveryState();
-  if (state && state.ts && (Date.now() - state.ts) >= DELIVERY_RESULT_TTL_MS) {
-    clearDeliveryState();
-  }
-
-  // Show after a short delay so it doesn't crash first paint.
-  setTimeout(() => {
-    renderDeliveryWidget();
-  }, 3000);
-
-  document.getElementById('deliveryWidgetClose')?.addEventListener('click', dismissDeliveryWidget);
+    if (s.delivery_fee) DELIVERY.fee = parseInt(s.delivery_fee, 10) || DELIVERY.fee;
+  }).catch(() => { /* keep default */ });
 }
 
 
@@ -1630,7 +1397,7 @@ function renderCheckoutTotal() {
   const couponDisc = _appliedCoupon?.computed_discount || 0;
   const bankDisc = bankTransferDiscount();                      // 5% if paying via bank
   const menuDisc = menuWideDiscount();                          // admin menu-wide % (subtotal only)
-  const deliveryFee = applicableDeliveryFee();                  // Rs.250 if in-zone confirmed
+  const deliveryFee = applicableDeliveryFee();                  // flat Rs.250 on every order
   const totalDisc = Math.min(total, bulk.amount + couponDisc + bankDisc + menuDisc);
   const itemsPayable = Math.max(0, total - totalDisc);
   const grandTotal = itemsPayable + deliveryFee;
@@ -1649,12 +1416,7 @@ function renderCheckoutTotal() {
   if (bankDisc > 0) {
     lines.push(`<div class="ct-line ct-disc"><span>Bank transfer (${BANK_TRANSFER_DISCOUNT_PCT}% off)</span><span>− ${CONFIG.currency} ${bankDisc}</span></div>`);
   }
-  if (deliveryFee > 0) {
-    lines.push(`<div class="ct-line"><span>Delivery fee</span><span>+ ${CONFIG.currency} ${deliveryFee}</span></div>`);
-  } else {
-    // Subtle note when delivery fee not yet known
-    lines.push(`<div class="ct-line ct-note"><span>Delivery fee</span><span>confirmed after location check</span></div>`);
-  }
+  lines.push(`<div class="ct-line"><span>Delivery fee</span><span>+ ${CONFIG.currency} ${deliveryFee}</span></div>`);
   lines.push(`<div class="ct-line ct-total"><span>You pay</span><span>${CONFIG.currency} ${grandTotal}</span></div>`);
   wrap.innerHTML = lines.join('');
 }
@@ -2343,7 +2105,7 @@ function applySectionBgVideo(sectionSelector, url, opacity = 0.45) {
 // ==================================================
 document.addEventListener('DOMContentLoaded', () => {
   initPreLaunchMode();           // countdown + intercepts (must run early)
-  initDeliveryWidget();          // floating zone-check widget bottom-left
+  loadDeliveryFee();             // load flat delivery fee from settings
   renderMenu();                  // immediate paint with fallback
   loadMenuFromDB();              // then replace with DB data
   loadSiteSettings();            // apply hero image if set
