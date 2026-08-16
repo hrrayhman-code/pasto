@@ -4587,3 +4587,117 @@ body.noa-ringing {
   .nav-links { margin-left: auto; gap: 12px; }
   .mobile-nav:not([hidden]) { display: flex; }
 }
+
+/* ============================================
+   ACCOUNTS PAGE (accounts.html) — money tracker
+   ============================================ */
+.acc-body {
+  background: var(--cream-dark);
+  min-height: 100vh;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.acc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 14px;
+  background: var(--cream);
+  border-bottom: 1.5px solid rgba(26,26,26,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.acc-brand { display: flex; align-items: center; gap: 10px; }
+.acc-brand-name { font-family: var(--display); font-weight: 500; font-size: 19px; line-height: 1; }
+.acc-brand-sub { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+.acc-admin-link { font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.acc-admin-link:hover { color: var(--red); }
+
+.acc-main { max-width: 640px; margin: 0 auto; padding: 18px 16px 40px; }
+
+.acc-monthnav {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  margin-bottom: 16px;
+}
+.acc-monthbtn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--cream); border: 1.5px solid rgba(26,26,26,0.15);
+  font-size: 22px; color: var(--charcoal); cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.acc-monthbtn:hover { background: var(--charcoal); color: var(--cream); }
+.acc-monthlabel { font-family: var(--display); font-weight: 500; font-size: 22px; min-width: 170px; text-align: center; }
+
+.acc-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.acc-card {
+  background: var(--cream); border: 1.5px solid rgba(26,26,26,0.1);
+  border-radius: 16px; padding: 16px;
+}
+.acc-card.profit { grid-column: 1 / -1; border-color: var(--charcoal); }
+.acc-card-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+.acc-card-value { font-family: var(--display); font-weight: 500; font-size: 26px; letter-spacing: -0.01em; }
+.acc-card.income .acc-card-value { color: #2d6a3f; }
+.acc-card.expense .acc-card-value { color: #C92837; }
+.acc-card.profit .acc-card-value { font-size: 34px; color: var(--charcoal); }
+.acc-card-value.neg, .acc-alltime.neg { color: #C92837; }
+
+.acc-alltime { text-align: center; font-size: 13px; color: var(--muted); margin: 4px 0 18px; font-weight: 600; }
+
+.acc-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.acc-add-btn {
+  padding: 16px; border-radius: 14px; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 15px; font-weight: 700; color: #fff;
+  transition: transform 0.15s, filter 0.15s;
+}
+.acc-add-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.acc-add-btn.income { background: #2d6a3f; }
+.acc-add-btn.expense { background: #C92837; }
+
+.acc-list-title { font-family: var(--display); font-weight: 500; font-size: 18px; margin: 0 0 12px; }
+.acc-list { display: flex; flex-direction: column; gap: 8px; }
+.acc-empty {
+  text-align: center; color: var(--muted); font-style: italic;
+  padding: 30px 16px; background: var(--cream); border-radius: 14px;
+  border: 1.5px dashed rgba(26,26,26,0.15);
+}
+.acc-txn {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--cream); border: 1.5px solid rgba(26,26,26,0.08);
+  border-radius: 14px; padding: 12px 14px;
+  border-left-width: 4px;
+}
+.acc-txn.income  { border-left-color: #2d6a3f; }
+.acc-txn.expense { border-left-color: #C92837; }
+.acc-txn-main { flex: 1; min-width: 0; cursor: pointer; }
+.acc-txn-cat { font-weight: 700; font-size: 14px; color: var(--charcoal); }
+.acc-txn-note { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-txn-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.acc-txn-amt { font-family: var(--display); font-weight: 500; font-size: 17px; white-space: nowrap; }
+.acc-txn-amt.income { color: #2d6a3f; }
+.acc-txn-amt.expense { color: #C92837; }
+.acc-txn-del {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.acc-txn-del:hover { background: rgba(201,40,55,0.1); color: #C92837; }
+.acc-txn-del svg { width: 16px; height: 16px; }
+
+.acc-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+.acc-tools .btn { flex: 1; padding: 10px 12px !important; font-size: 13px; text-align: center; cursor: pointer; }
+.acc-restore-label { position: relative; overflow: hidden; }
+.acc-restore-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.acc-tools-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; text-align: center; }
+
+/* Add/edit modal type toggle */
+.acc-type-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+.acc-type-opt {
+  flex: 1; padding: 12px; border-radius: 100px; cursor: pointer;
+  border: 1.5px solid rgba(26,26,26,0.15); background: transparent;
+  font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--muted);
+  transition: all 0.15s;
+}
+.acc-type-opt.active { color: #fff; }
+#typeIncomeBtn.active  { background: #2d6a3f; border-color: #2d6a3f; }
+#typeExpenseBtn.active { background: #C92837; border-color: #C92837; }

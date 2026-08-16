@@ -1,0 +1,16 @@
+{
+  "name": "Pasto Accounts",
+  "short_name": "Pasto Accounts",
+  "description": "Income, expenses and profit tracker for Pasto by Aiman.",
+  "start_url": "/accounts",
+  "scope": "/accounts",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8F0",
+  "theme_color": "#E63946",
+  "icons": [
+    { "src": "assets/logo-icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/logo-icon.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/logo-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

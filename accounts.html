@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Pasto · Accounts</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#E63946">
+
+  <!-- Home-screen "app" support (iOS + Android) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pasto Accounts">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/svg+xml" href="assets/logo-icon.svg">
+  <link rel="apple-touch-icon" href="assets/logo-icon.png">
+  <link rel="manifest" href="accounts-manifest.json">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,700&family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="acc-body">
+
+  <header class="acc-header">
+    <div class="acc-brand">
+      <img src="assets/logo-icon.svg" alt="" width="34" height="34">
+      <div>
+        <div class="acc-brand-name">Pasto Accounts</div>
+        <div class="acc-brand-sub">Income · Expenses · Profit</div>
+      </div>
+    </div>
+    <a href="/admin" class="acc-admin-link" title="Admin dashboard">Admin →</a>
+  </header>
+
+  <main class="acc-main">
+
+    <!-- Month navigator -->
+    <div class="acc-monthnav">
+      <button class="acc-monthbtn" onclick="shiftMonth(-1)" aria-label="Previous month">‹</button>
+      <div class="acc-monthlabel" id="accMonthLabel">—</div>
+      <button class="acc-monthbtn" onclick="shiftMonth(1)" aria-label="Next month">›</button>
+    </div>
+
+    <!-- Summary cards -->
+    <section class="acc-summary">
+      <div class="acc-card income">
+        <div class="acc-card-label">Income</div>
+        <div class="acc-card-value" id="sumIncome">Rs. 0</div>
+      </div>
+      <div class="acc-card expense">
+        <div class="acc-card-label">Expenses</div>
+        <div class="acc-card-value" id="sumExpense">Rs. 0</div>
+      </div>
+      <div class="acc-card profit">
+        <div class="acc-card-label">Profit this month</div>
+        <div class="acc-card-value" id="sumProfit">Rs. 0</div>
+      </div>
+    </section>
+
+    <div class="acc-alltime" id="accAllTime">All-time profit: Rs. 0</div>
+
+    <!-- Add buttons -->
+    <div class="acc-add-row">
+      <button class="acc-add-btn income" onclick="openTxnForm('income')">+ Add income</button>
+      <button class="acc-add-btn expense" onclick="openTxnForm('expense')">– Add expense</button>
+    </div>
+
+    <!-- Transaction list -->
+    <h3 class="acc-list-title">Transactions</h3>
+    <section class="acc-list" id="accList">
+      <div class="acc-empty">No transactions this month yet.</div>
+    </section>
+
+    <!-- Data tools -->
+    <div class="acc-tools">
+      <button class="btn btn-secondary" onclick="exportCSV()">⬇️ Export CSV</button>
+      <button class="btn btn-secondary" onclick="backupJSON()">💾 Backup</button>
+      <label class="btn btn-secondary acc-restore-label">
+        ♻️ Restore
+        <input type="file" id="restoreFile" accept="application/json" onchange="restoreJSON(event)">
+      </label>
+    </div>
+    <p class="acc-tools-note">Your data is saved on this device. Tap <strong>Backup</strong> weekly and keep the file safe — that's your safety net.</p>
+  </main>
+
+  <!-- Add / edit transaction modal -->
+  <div class="overlay" id="accOverlay" onclick="closeTxnForm()"></div>
+  <div class="modal acc-modal" id="txnModal">
+    <h2 class="modal-title" id="txnModalTitle">Add income</h2>
+
+    <div class="acc-type-toggle">
+      <button type="button" class="acc-type-opt" id="typeIncomeBtn" onclick="setTxnType('income')">Income</button>
+      <button type="button" class="acc-type-opt" id="typeExpenseBtn" onclick="setTxnType('expense')">Expense</button>
+    </div>
+
+    <div class="field">
+      <label for="txnAmount">Amount (Rs.)</label>
+      <input type="number" id="txnAmount" inputmode="numeric" min="0" step="1" placeholder="0">
+    </div>
+
+    <div class="field">
+      <label for="txnCategory">Category</label>
+      <select id="txnCategory"></select>
+    </div>
+
+    <div class="field">
+      <label for="txnNote">Note (optional)</label>
+      <input type="text" id="txnNote" maxlength="120" placeholder="e.g. Sunday ingredients from Metro">
+    </div>
+
+    <div class="field">
+      <label for="txnDate">Date</label>
+      <input type="date" id="txnDate">
+    </div>
+
+    <div class="modal-foot">
+      <button class="modal-cancel" onclick="closeTxnForm()">Cancel</button>
+      <button class="modal-submit" id="txnSaveBtn" onclick="saveTxn()">Save</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/accounts.js"></script>
+</body>
+</html>
