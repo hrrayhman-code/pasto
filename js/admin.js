@@ -496,6 +496,23 @@ function renderOrders() {
   list.innerHTML = items.map(renderOrderRow).join('');
 }
 
+// Human "time ago": seconds → minutes → hours → days → weeks → months → years.
+function timeAgo(ts) {
+  const then = new Date(ts).getTime();
+  if (!isFinite(then)) return '';
+  const sec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  if (day < 30) return `${Math.floor(day / 7)}w ago`;
+  if (day < 365) return `${Math.floor(day / 30)}mo ago`;
+  return `${Math.floor(day / 365)}y ago`;
+}
+
 function renderOrderRow(o) {
   const itemsHTML = (o.items || []).map(it =>
     `<li>${Number(it.qty) || 0}× ${escapeHTML(it.name)} <span class="ord-item-price">Rs. ${(Number(it.price) || 0) * (Number(it.qty) || 0)}</span></li>`
@@ -506,7 +523,6 @@ function renderOrderRow(o) {
   const nextLabel = next ? ORDER_STATUS_LABELS[next] : null;
   const prevLabel = prev ? ORDER_STATUS_LABELS[prev] : null;
   const active = isActive(o);
-  const elapsed = Math.max(0, Math.round((Date.now() - new Date(o.created_at).getTime()) / 60000));
 
   // Dropdown options: every stage + Cancelled. Disable current.
   const dropdownOptions = STATUS_FLOW.map(s =>
@@ -520,7 +536,7 @@ function renderOrderRow(o) {
           <span class="ord-code">#${escapeHTML(o.short_code)}</span>
           <span class="admin-row-name">${escapeHTML(o.customer_name)}</span>
           <span class="admin-row-sub">· ${escapeHTML(o.customer_phone)}</span>
-          <span class="admin-row-sub">· ${elapsed}m ago</span>
+          <span class="admin-row-sub">· ${timeAgo(o.created_at)}</span>
         </div>
         <div class="admin-row-badges">
           <span class="badge order-status-${o.status}">${ORDER_STATUS_LABELS[o.status]}</span>
