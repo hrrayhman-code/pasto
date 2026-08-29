@@ -160,6 +160,7 @@ function showDashboard(session) {
   loadAdminData();
   loadOrders();
   loadCoupons();
+  loadCategories();
   loadMenuItems();
   loadSiteImagePreview();
   loadStoreSettings();
@@ -726,6 +727,85 @@ async function deleteCoupon(code) {
 // MENU MANAGEMENT
 // ==================================================
 let _menuCache = [];
+let _categories = ['Pasta', 'Sides'];
+
+// ----- Menu categories (drive the customer tabs) -----
+async function loadCategories() {
+  try {
+    const raw = await SettingsAPI.get('menu_categories');
+    const cats = JSON.parse(raw || '[]');
+    if (Array.isArray(cats) && cats.length) {
+      _categories = cats.filter(c => typeof c === 'string' && c.trim());
+    }
+  } catch (_) { /* keep default */ }
+  renderCategoryChips();
+  populateCategorySelect();
+}
+
+function renderCategoryChips() {
+  const wrap = document.getElementById('catChips');
+  if (!wrap) return;
+  if (!_categories.length) { wrap.innerHTML = '<span class="coupons-sub">No categories yet — add one below.</span>'; return; }
+  wrap.innerHTML = _categories.map(name =>
+    `<span class="cat-chip" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line,#e5ddd0);border-radius:999px;padding:5px 6px 5px 12px;font-weight:600;font-size:13px;">
+      ${escapeHTML(name)}
+      <button type="button" title="Remove ${escapeHTML(name)}" onclick='removeCategory(${JSON.stringify(name)})' style="border:none;background:#f1e9dc;color:#b0442f;width:20px;height:20px;border-radius:50%;cursor:pointer;line-height:1;font-weight:700;">×</button>
+    </span>`
+  ).join('');
+}
+
+function populateCategorySelect(selected) {
+  const sel = document.getElementById('miCategory');
+  if (!sel) return;
+  const list = _categories.slice();
+  // If editing an item whose category was removed from the list, keep it shown.
+  if (selected && !list.some(c => c.toLowerCase() === String(selected).toLowerCase())) {
+    list.unshift(selected);
+  }
+  sel.innerHTML = list.map(c => `<option value="${escapeHTML(c)}"${selected && c.toLowerCase() === String(selected).toLowerCase() ? ' selected' : ''}>${escapeHTML(c)}</option>`).join('');
+  if (selected) sel.value = selected;
+}
+
+async function addCategory(e) {
+  e.preventDefault();
+  const input = document.getElementById('newCategory');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  if (_categories.some(c => c.toLowerCase() === name.toLowerCase())) {
+    showToast('That category already exists');
+    return;
+  }
+  _categories.push(name);
+  try {
+    await SettingsAPI.set('menu_categories', JSON.stringify(_categories));
+    input.value = '';
+    renderCategoryChips();
+    populateCategorySelect();
+    showToast('Category added');
+  } catch (err) {
+    _categories.pop();
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
+
+async function removeCategory(name) {
+  const inUse = _menuCache.filter(m => String(m.category || '').toLowerCase() === String(name).toLowerCase());
+  const msg = inUse.length
+    ? `Remove "${name}"? ${inUse.length} dish(es) still use it — they'll stay but you should re-assign them to another category.`
+    : `Remove the "${name}" category?`;
+  if (!confirm(msg)) return;
+  const prev = _categories.slice();
+  _categories = _categories.filter(c => c.toLowerCase() !== String(name).toLowerCase());
+  try {
+    await SettingsAPI.set('menu_categories', JSON.stringify(_categories));
+    renderCategoryChips();
+    populateCategorySelect();
+    showToast('Category removed');
+  } catch (err) {
+    _categories = prev;
+    showToast('Failed: ' + (err.message || ''));
+  }
+}
 
 async function loadMenuItems() {
   const list = document.getElementById('adminMenuList');
@@ -755,6 +835,7 @@ function renderMenuRow(m) {
             <div class="admin-row-meta">
               <span class="admin-row-name">${escapeHTML(m.name)}</span>
               <span class="admin-row-sub">· ${escapeHTML(m.id)}</span>
+              <span class="admin-row-sub">· ${escapeHTML(m.category || 'Pasta')}</span>
               <span class="admin-row-sub">· Rs. ${m.price}</span>
               ${m.tag ? `<span class="badge order-status-${m.tag === 'signature' ? 'baking' : m.tag === 'veg' ? 'delivered' : 'preparing'}">${escapeHTML(m.tag_label || m.tag)}</span>` : ''}
               ${!m.active ? `<span class="badge coupon-status-badge-inactive">Hidden</span>` : ''}
@@ -796,6 +877,7 @@ function resetMenuForm() {
   document.getElementById('miIconColor').value = '#FFF8F0';
   document.getElementById('miAccentColor').value = '#E63946';
   document.getElementById('miActive').checked = true;
+  populateCategorySelect(_categories[0] || 'Pasta');
 }
 
 function editMenuItem(id) {
@@ -810,6 +892,7 @@ function editMenuItem(id) {
   document.getElementById('miPrice').value = m.price;
   document.getElementById('miTag').value = m.tag || 'signature';
   document.getElementById('miTagLabel').value = m.tag_label || '';
+  populateCategorySelect(m.category || _categories[0] || 'Pasta');
   document.getElementById('miIconColor').value = m.icon_color || '#FFF8F0';
   document.getElementById('miAccentColor').value = m.accent_color || '#E63946';
   document.getElementById('miSortOrder').value = m.sort_order || 0;
@@ -852,6 +935,7 @@ async function saveMenuItem(e) {
       price: parseInt(document.getElementById('miPrice').value, 10),
       tag: document.getElementById('miTag').value || 'signature',
       tag_label: document.getElementById('miTagLabel').value.trim() || 'Signature',
+      category: document.getElementById('miCategory').value || _categories[0] || 'Pasta',
       icon_color: document.getElementById('miIconColor').value,
       accent_color: document.getElementById('miAccentColor').value,
       sort_order: parseInt(document.getElementById('miSortOrder').value, 10) || 0,

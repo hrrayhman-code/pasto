@@ -263,9 +263,9 @@
 
       <!-- Sticky category tabs -->
       <div class="menu-cats" id="menuCats" role="tablist" aria-label="Menu categories">
-        <button class="menu-cat active" data-cat="all"   role="tab" onclick="filterMenuCategory('all', this)">All</button>
-        <button class="menu-cat"        data-cat="pasta" role="tab" onclick="filterMenuCategory('pasta', this)">Pastas</button>
-        <button class="menu-cat"        data-cat="sides" role="tab" onclick="filterMenuCategory('sides', this)">Sides</button>
+        <!-- Tabs are rendered by renderCategoryTabs() in app.js from the live
+             categories. This "All" button is a first-paint placeholder. -->
+        <button class="menu-cat active" data-cat="all" role="tab" onclick="filterMenuCategory('all', this)">All</button>
       </div>
 
       <div class="menu-grid" id="menuGrid">

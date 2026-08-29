@@ -393,6 +393,17 @@ insert into public.menu_items (id, name, description, price, tag, tag_label, ico
   ('sausage','Smoky Sausage Bruschetta','Toasted bread topped with smoky sausage, tomato, herbs, and olive oil. Hearty bite-sized starter.',350,'spicy','Side','#FFE0CC','#d97706',5)
 on conflict (id) do nothing;
 
+-- Menu category (drives the customer-facing tabs). Managed in admin; the
+-- full ordered list of categories lives in site_settings.menu_categories.
+alter table public.menu_items add column if not exists category text;
+
+-- Backfill category for rows that don't have one yet (first run / legacy rows).
+-- Uses the old tag_label convention: 'Side' items -> 'Sides', everything else
+-- -> 'Pasta'. Guarded by "category is null" so it never clobbers admin edits.
+update public.menu_items
+   set category = case when lower(tag_label) like 'side%' then 'Sides' else 'Pasta' end
+ where category is null;
+
 
 -- ============================================================
 -- SITE SETTINGS  (key/value bag for things like hero image URL)
@@ -417,7 +428,8 @@ create policy "public_read_settings"
   using (key in (
     'delivery_fee','free_delivery_over','hero_image_url',
     'business_hours_start','business_hours_end',
-    'kitchen_lat','kitchen_lng','delivery_radius_km'
+    'kitchen_lat','kitchen_lng','delivery_radius_km',
+    'menu_categories','menu_discount_percent','menu_discount_label'
   ));
 
 create policy "auth_settings_all"
@@ -870,6 +882,10 @@ insert into public.site_settings (key, value) values
   -- 0 = no discount. Label is the offer text shown to customers.
   ('menu_discount_percent',   '0'),
   ('menu_discount_label',     ''),
+  -- Ordered list of menu categories (JSON array). Drives the customer menu
+  -- tabs and the admin item-form category dropdown. Add future categories here
+  -- from admin → Menu.
+  ('menu_categories',         '["Pasta","Sides","Salad"]'),
   -- Section background videos (uploaded via admin → Site tab)
   ('bg_video_story',          ''),
   ('bg_video_rewards',        ''),

@@ -128,11 +128,22 @@ function updateAllMenuCardControls() {
   });
 }
 
-// Derive a simple category for the menu tabs: "sides" for sides,
-// otherwise "pasta". Robust to missing/renamed tags.
+// Ordered list of menu category display names. Overridden at runtime from
+// site_settings.menu_categories (managed in admin). Falls back to whatever
+// categories the loaded items actually use.
+let MENU_CATEGORIES = ['Pasta', 'Sides'];
+
+// Turn a category display name into a stable slug for tab/card matching.
+function catSlug(s) {
+  return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// A menu item's category display name. Uses the item's own category, falling
+// back to the old tag convention ('Side' -> Sides) for any legacy item.
 function menuItemCategory(item) {
+  if (item.category && String(item.category).trim()) return String(item.category).trim();
   const label = String(item.tagLabel || '').toLowerCase();
-  return (label === 'side' || label === 'sides') ? 'sides' : 'pasta';
+  return label.startsWith('side') ? 'Sides' : 'Pasta';
 }
 
 // Price markup for a menu card — shows struck-through original + new
@@ -158,7 +169,7 @@ function renderMenu() {
       ? ` has-photo" data-photo="${escapeHTML(item.imageUrl)}" data-name="${escapeHTML(item.name)}" role="button" tabindex="0" aria-label="View photo of ${escapeHTML(item.name)}`
       : '';
     return `
-    <div class="menu-card" data-id="${escapeHTML(item.id)}" data-cat="${cat}">
+    <div class="menu-card" data-id="${escapeHTML(item.id)}" data-cat="${catSlug(cat)}">
       <div class="menu-card-media">
         ${item.tagLabel ? `<span class="menu-card-tag ${String(item.tag || '').replace(/[^a-z]/gi, '')}">${escapeHTML(item.tagLabel)}</span>` : ''}
         <div class="menu-card-visual${visualAttrs}">
@@ -177,7 +188,9 @@ function renderMenu() {
     </div>`;
   }).join('');
   observeReveals();
-  // Re-apply the currently selected category filter after a re-render.
+  // Build the category tabs from the current items + admin order, then
+  // re-apply the currently selected category filter after a re-render.
+  renderCategoryTabs();
   filterMenuCategory(_activeMenuCat, null);
 
   // Delegated: tapping a dish photo opens the lightbox (idempotent).
@@ -218,8 +231,34 @@ function closeDishLightbox() {
   document.body.style.overflow = '';
 }
 
-// Active menu category ('all' | 'pasta' | 'sides')
+// Active menu category slug ('all' | 'pasta' | 'sides' | 'salad' | …)
 let _activeMenuCat = 'all';
+
+// Build the sticky category tabs. Shows "All" plus every category that
+// currently has at least one item, ordered by the admin-defined list
+// (MENU_CATEGORIES) with any extras appended. Future categories appear
+// automatically once an item uses them.
+function renderCategoryTabs() {
+  const wrap = document.getElementById('menuCats');
+  if (!wrap) return;
+  const presentSlugs = new Set(MENU.map(it => catSlug(menuItemCategory(it))));
+  const ordered = [];
+  MENU_CATEGORIES.forEach(name => {
+    const slug = catSlug(name);
+    if (presentSlugs.has(slug) && !ordered.some(n => catSlug(n) === slug)) ordered.push(name);
+  });
+  MENU.forEach(it => {
+    const name = menuItemCategory(it);
+    if (!ordered.some(n => catSlug(n) === catSlug(name))) ordered.push(name);
+  });
+  // If the active filter no longer exists (category removed), reset to All.
+  const validSlugs = ['all', ...ordered.map(catSlug)];
+  if (!validSlugs.includes(_activeMenuCat)) _activeMenuCat = 'all';
+
+  const btn = (slug, label) =>
+    `<button class="menu-cat${_activeMenuCat === slug ? ' active' : ''}" data-cat="${slug}" role="tab" onclick="filterMenuCategory('${slug}', this)">${escapeHTML(label)}</button>`;
+  wrap.innerHTML = [btn('all', 'All'), ...ordered.map(name => btn(catSlug(name), name))].join('');
+}
 
 function filterMenuCategory(cat, btnEl) {
   _activeMenuCat = cat || 'all';
@@ -1995,6 +2034,7 @@ async function loadMenuFromDB() {
         price:       r.price,
         tag:         r.tag,
         tagLabel:    r.tag_label,
+        category:    r.category,
         imageUrl:    r.image_url,
         iconColor:   r.icon_color,
         accentColor: r.accent_color
@@ -2027,6 +2067,14 @@ async function loadSiteSettings() {
       label: settings.menu_discount_label || ''
     };
     reflectMenuDiscount();
+    // Menu categories (ordered list that drives the customer tabs).
+    try {
+      const cats = JSON.parse(settings.menu_categories || '[]');
+      if (Array.isArray(cats) && cats.length) {
+        MENU_CATEGORIES = cats.filter(c => typeof c === 'string' && c.trim());
+      }
+    } catch (_) { /* keep default */ }
+    renderCategoryTabs();
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {

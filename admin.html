@@ -256,6 +256,19 @@
           <button class="btn btn-primary" onclick="openMenuForm()">+ New item</button>
         </div>
 
+        <!-- Category manager: add/remove the categories that become menu tabs -->
+        <div class="cat-manager" style="border:1px solid var(--line,#e5ddd0);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+          <div style="margin-bottom:10px;">
+            <strong>Menu categories</strong>
+            <p class="coupons-sub" style="margin:2px 0 0;">These become the tabs on your website (e.g. Pasta, Sides, Salad). Add any future category here, then pick it when adding a dish. Order here = order of the tabs.</p>
+          </div>
+          <div id="catChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+          <form class="cat-add" onsubmit="addCategory(event)" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input id="newCategory" type="text" maxlength="24" placeholder="New category (e.g. Salad)" autocomplete="off" style="flex:1;min-width:180px;">
+            <button type="submit" class="btn btn-primary">Add category</button>
+          </form>
+        </div>
+
         <form class="coupon-form menu-form" id="menuForm" hidden onsubmit="saveMenuItem(event)">
           <input type="hidden" id="miOriginalId" value="">
           <div class="coupon-form-row">
@@ -281,6 +294,10 @@
             <textarea id="miDesc" maxlength="400" rows="2" placeholder="A few words customers will see on the card"></textarea>
           </div>
           <div class="coupon-form-row">
+            <div class="field">
+              <label for="miCategory">Category (menu tab)</label>
+              <select id="miCategory"></select>
+            </div>
             <div class="field">
               <label for="miTag">Tag (badge)</label>
               <select id="miTag">
