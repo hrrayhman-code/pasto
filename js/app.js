@@ -399,15 +399,20 @@ const BP_GROUPS = [
 ];
 let _bp = { pasta: null, sauce: null, protein: null, extras: new Set(), qty: 1 };
 
+// Master switch for the Build Your Pasta feature. Set to true to show it once
+// the pricing is set up in admin.
+const BUILD_PASTA_ENABLED = false;
+
 function buildConfigured() {
   return (BUILD_OPTIONS.pasta || []).length && (BUILD_OPTIONS.sauce || []).length && (BUILD_OPTIONS.protein || []).length;
 }
 function reflectBuildAvailability() {
   const btn = document.querySelector('.hero-build-btn');
-  if (btn) btn.style.display = buildConfigured() ? '' : 'none';
+  if (btn) btn.style.display = (BUILD_PASTA_ENABLED && buildConfigured()) ? '' : 'none';
 }
 
 function openBuildPasta() {
+  if (!BUILD_PASTA_ENABLED) return;
   if (isPreLaunch()) { openLaunchModal(); return; }
   if (!buildConfigured()) { showToast('Custom pasta is not available right now'); return; }
   _bp = { pasta: null, sauce: null, protein: null, extras: new Set(), qty: 1 };
