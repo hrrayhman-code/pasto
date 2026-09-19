@@ -28,8 +28,10 @@ function migrateCart(raw) {
     if (typeof val === 'number') {
       // Legacy format: { id: qty }
       if (val > 0) out[key] = { id: key, qty: val, addons: [] };
-    } else if (val && typeof val === 'object' && val.id) {
-      out[key] = { id: val.id, qty: val.qty || 0, addons: Array.isArray(val.addons) ? val.addons : [] };
+    } else if (val && typeof val === 'object' && (val.id || val.build)) {
+      const line = { id: val.id || '__build__', qty: val.qty || 0, addons: Array.isArray(val.addons) ? val.addons : [] };
+      if (val.build) line.build = val.build;
+      out[key] = line;
     }
   });
   return out;
@@ -50,8 +52,27 @@ function addonUnitTotal(item, addons) {
     return s + (a ? Number(a.price) || 0 : 0);
   }, 0);
 }
-// Full per-unit price of a cart line (base + selected add-ons).
+// Ordered "Build Your Pasta" options, loaded from settings.build_pasta_options.
+let BUILD_OPTIONS = { pasta: [], sauce: [], protein: [], extras: [] };
+
+// Price of a built-pasta selection, summed from BUILD_OPTIONS.
+function buildLinePrice(sel) {
+  if (!sel) return 0;
+  let p = 0;
+  ['pasta', 'sauce', 'protein'].forEach(g => {
+    const o = (BUILD_OPTIONS[g] || []).find(x => x.name === sel[g]);
+    if (o) p += Number(o.price) || 0;
+  });
+  (sel.extras || []).forEach(n => {
+    const o = (BUILD_OPTIONS.extras || []).find(x => x.name === n);
+    if (o) p += Number(o.price) || 0;
+  });
+  return p;
+}
+
+// Full per-unit price of a cart line (a built pasta, or a menu item + add-ons).
 function lineUnitPrice(line) {
+  if (line.build) return buildLinePrice(line.build);
   const item = itemById(line.id);
   if (!item) return 0;
   return (Number(item.price) || 0) + addonUnitTotal(item, line.addons);
@@ -367,6 +388,120 @@ function pmAddToCart() {
   const item = itemById(id);
   closeProductModal();
   showToast(`${item ? item.name : 'Item'} added to cart`);
+}
+
+// ----- Build Your Pasta customiser -----
+const BP_GROUPS = [
+  { key: 'pasta',   label: 'Choose your pasta', type: 'single', required: true },
+  { key: 'sauce',   label: 'Choose your sauce', type: 'single', required: true },
+  { key: 'protein', label: 'Add protein',       type: 'single', required: true },
+  { key: 'extras',  label: 'Extras',            type: 'multi',  required: false }
+];
+let _bp = { pasta: null, sauce: null, protein: null, extras: new Set(), qty: 1 };
+
+function buildConfigured() {
+  return (BUILD_OPTIONS.pasta || []).length && (BUILD_OPTIONS.sauce || []).length && (BUILD_OPTIONS.protein || []).length;
+}
+function reflectBuildAvailability() {
+  const btn = document.querySelector('.hero-build-btn');
+  if (btn) btn.style.display = buildConfigured() ? '' : 'none';
+}
+
+function openBuildPasta() {
+  if (isPreLaunch()) { openLaunchModal(); return; }
+  if (!buildConfigured()) { showToast('Custom pasta is not available right now'); return; }
+  _bp = { pasta: null, sauce: null, protein: null, extras: new Set(), qty: 1 };
+  const box = document.getElementById('buildModal');
+  const body = document.getElementById('buildModalBody');
+  if (!box || !body) return;
+
+  const groupHTML = BP_GROUPS.map(g => {
+    const opts = BUILD_OPTIONS[g.key] || [];
+    if (!opts.length) return '';
+    const rows = opts.map(o => {
+      const price = Number(o.price) || 0;
+      const priceLabel = price > 0 ? `+ ${CONFIG.currency} ${price}` : 'Free';
+      const input = g.type === 'multi'
+        ? `<input type="checkbox" data-group="${g.key}" data-name="${escapeHTML(o.name)}" onchange="bpToggle(this)">`
+        : `<input type="radio" name="bp-${g.key}" data-group="${g.key}" data-name="${escapeHTML(o.name)}" onchange="bpToggle(this)">`;
+      return `<label class="bp-opt">
+        <span class="bp-opt-name">${escapeHTML(o.name)}</span>
+        <span class="pm-addon-right"><span class="pm-addon-price">${priceLabel}</span>${input}</span>
+      </label>`;
+    }).join('');
+    return `<div class="bp-group"><div class="pm-addons-title">${escapeHTML(g.label)}${g.required ? ' *' : ''}</div>${rows}</div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="pm-info">
+      <h3 class="pm-name">🍝 Build Your Pasta</h3>
+      <p class="pm-desc">Pick your pasta, sauce, protein and extras — we'll cook it fresh.</p>
+      ${groupHTML}
+      <div class="pm-foot">
+        <div class="pm-qty">
+          <button class="qty-btn" onclick="bpChangeQty(-1)" aria-label="Decrease">−</button>
+          <span class="qty-val" id="bpQty">1</span>
+          <button class="qty-btn" onclick="bpChangeQty(1)" aria-label="Increase">+</button>
+        </div>
+        <button class="pm-add" onclick="bpAddToCart()">Add to cart · <span id="bpTotal"></span></button>
+      </div>
+    </div>
+  `;
+  bpUpdateTotal();
+  box.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBuildPasta() {
+  const box = document.getElementById('buildModal');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.style.overflow = '';
+}
+
+function bpToggle(el) {
+  const g = el.getAttribute('data-group');
+  const name = el.getAttribute('data-name');
+  if (g === 'extras') {
+    if (el.checked) _bp.extras.add(name); else _bp.extras.delete(name);
+  } else {
+    _bp[g] = name;
+  }
+  bpUpdateTotal();
+}
+function bpChangeQty(delta) {
+  _bp.qty = Math.max(1, _bp.qty + delta);
+  const q = document.getElementById('bpQty');
+  if (q) q.textContent = _bp.qty;
+  bpUpdateTotal();
+}
+function bpSelection() {
+  return { pasta: _bp.pasta, sauce: _bp.sauce, protein: _bp.protein, extras: [..._bp.extras] };
+}
+function bpUpdateTotal() {
+  const el = document.getElementById('bpTotal');
+  if (el) el.textContent = `${CONFIG.currency} ${buildLinePrice(bpSelection()) * _bp.qty}`;
+}
+function buildKey(sel) {
+  return '__build__#' + [sel.pasta || '', sel.sauce || '', sel.protein || ''].join('|') + '#' + (sel.extras || []).slice().sort().join(',');
+}
+function addBuildLineToCart(sel, qty) {
+  const key = buildKey(sel);
+  const existing = cart[key];
+  cart[key] = { id: '__build__', build: sel, qty: (existing?.qty || 0) + (qty || 1), addons: [] };
+  saveCart();
+  renderCart();
+  updateCartCount();
+}
+function bpAddToCart() {
+  if (isPreLaunch()) { closeBuildPasta(); openLaunchModal(); return; }
+  if (!_bp.pasta || !_bp.sauce || !_bp.protein) {
+    showToast('Please choose pasta, sauce and protein');
+    return;
+  }
+  addBuildLineToCart(bpSelection(), _bp.qty);
+  closeBuildPasta();
+  showToast('Custom pasta added to cart');
 }
 
 // Active menu category slug ('all' | 'pasta' | 'sides' | 'salad' | …)
@@ -1206,9 +1341,14 @@ function bulkFreeDiscount() {
   if (totalQty < 5) return { qualifies: false, freeItem: null, amount: 0 };
   let cheapest = null;
   Object.values(cart).forEach(line => {
-    const item = MENU.find(m => m.id === line.id);
-    if (!item) return;
-    if (cheapest === null || item.price < cheapest.price) cheapest = item;
+    let price, name;
+    if (line.build) { price = buildLinePrice(line.build); name = 'Build Your Pasta'; }
+    else {
+      const item = MENU.find(m => m.id === line.id);
+      if (!item) return;
+      price = item.price; name = item.name;
+    }
+    if (cheapest === null || price < cheapest.price) cheapest = { price, name };
   });
   return cheapest
     ? { qualifies: true, freeItem: cheapest, amount: cheapest.price }
@@ -1260,20 +1400,32 @@ function renderCart() {
   } else {
     const bulk = bulkFreeDiscount();
     const itemsHTML = Object.entries(cart).map(([key, line]) => {
-      const item = MENU.find(m => m.id === line.id);
-      if (!item) return '';
       const qty = line.qty;
       const unit = lineUnitPrice(line);
-      const addonsHTML = (line.addons && line.addons.length)
-        ? `<div class="cart-item-addons">+ ${line.addons.map(escapeHTML).join(', ')}</div>`
-        : '';
       const safeKey = key.replace(/'/g, "\\'");
+      let iconHTML, nameHTML, subHTML;
+      if (line.build) {
+        const b = line.build;
+        const bits = [b.pasta, b.sauce, b.protein].filter(x => x && x !== 'No protein');
+        if ((b.extras || []).length) bits.push('+ ' + b.extras.join(', '));
+        iconHTML = `<div class="cart-item-icon">🍝</div>`;
+        nameHTML = 'Build Your Pasta';
+        subHTML = `<div class="cart-item-addons">${escapeHTML(bits.join(' · '))}</div>`;
+      } else {
+        const item = MENU.find(m => m.id === line.id);
+        if (!item) return '';
+        iconHTML = `<div class="cart-item-icon">${dishVisual(item)}</div>`;
+        nameHTML = escapeHTML(item.name);
+        subHTML = (line.addons && line.addons.length)
+          ? `<div class="cart-item-addons">+ ${line.addons.map(escapeHTML).join(', ')}</div>`
+          : '';
+      }
       return `
         <div class="cart-item">
-          <div class="cart-item-icon">${dishVisual(item)}</div>
+          ${iconHTML}
           <div class="cart-item-info">
-            <div class="cart-item-name">${escapeHTML(item.name)}</div>
-            ${addonsHTML}
+            <div class="cart-item-name">${nameHTML}</div>
+            ${subHTML}
             <div class="cart-item-price">${CONFIG.currency} ${unit} × ${qty} = ${CONFIG.currency} ${unit * qty}</div>
           </div>
           <div class="cart-qty">
@@ -1665,7 +1817,9 @@ async function submitOrder() {
 
   // Server recomputes name/price/total from menu_items — send id + qty + add-on
   // names only (add-on prices are looked up server-side, never trusted).
-  const items = Object.values(cart).map(l => ({ id: l.id, qty: l.qty, addons: l.addons || [] }));
+  const items = Object.values(cart).map(l => l.build
+    ? ({ build: true, qty: l.qty, selections: l.build })
+    : ({ id: l.id, qty: l.qty, addons: l.addons || [] }));
   if (items.length === 0) { showToast('Your cart is empty'); return; }
 
   const payMethod = selectedPayMethod();   // 'cod' | 'prepay'
@@ -2251,6 +2405,14 @@ async function loadSiteSettings() {
       }
     } catch (_) { /* keep default */ }
     renderCategoryTabs();
+    // Build Your Pasta options.
+    try {
+      const bp = JSON.parse(settings.build_pasta_options || '{}');
+      ['pasta', 'sauce', 'protein', 'extras'].forEach(g => {
+        BUILD_OPTIONS[g] = Array.isArray(bp[g]) ? bp[g] : [];
+      });
+    } catch (_) { /* keep default */ }
+    reflectBuildAvailability();
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {

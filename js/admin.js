@@ -161,6 +161,7 @@ function showDashboard(session) {
   loadOrders();
   loadCoupons();
   loadCategories();
+  loadBuildOptions();
   loadMenuItems();
   loadSiteImagePreview();
   loadStoreSettings();
@@ -861,6 +862,57 @@ function renderMenuRow(m) {
       </div>
     </article>
   `;
+}
+
+// ----- Build Your Pasta options editor -----
+let _buildOptions = { pasta: [], sauce: [], protein: [], extras: [] };
+const BP_ADMIN_GROUPS = [['pasta', 'bpaPasta'], ['sauce', 'bpaSauce'], ['protein', 'bpaProtein'], ['extras', 'bpaExtras']];
+
+async function loadBuildOptions() {
+  try {
+    const raw = await SettingsAPI.get('build_pasta_options');
+    const bp = JSON.parse(raw || '{}');
+    ['pasta', 'sauce', 'protein', 'extras'].forEach(g => { _buildOptions[g] = Array.isArray(bp[g]) ? bp[g] : []; });
+  } catch (_) { /* keep default */ }
+  BP_ADMIN_GROUPS.forEach(([g, containerId]) => {
+    const wrap = document.getElementById(containerId);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    (_buildOptions[g] || []).forEach(o => addBuildRow(g, o.name, o.price));
+  });
+}
+function addBuildRow(group, name, price) {
+  const entry = BP_ADMIN_GROUPS.find(x => x[0] === group);
+  const wrap = entry && document.getElementById(entry[1]);
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'addon-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+  row.innerHTML = `
+    <input type="text" class="bp-name" placeholder="Name" maxlength="40" style="flex:2;min-width:0;">
+    <input type="number" class="bp-price" placeholder="Rs." min="0" style="flex:1;min-width:0;width:70px;">
+    <button type="button" class="admin-action danger" onclick="this.closest('.addon-row').remove()" aria-label="Remove">✕</button>`;
+  row.querySelector('.bp-name').value = name || '';
+  row.querySelector('.bp-price').value = (price === 0 || price) ? price : '';
+  wrap.appendChild(row);
+}
+function collectBuildGroup(containerId) {
+  const out = [];
+  document.querySelectorAll('#' + containerId + ' .addon-row').forEach(r => {
+    const name = r.querySelector('.bp-name').value.trim();
+    const price = parseInt(r.querySelector('.bp-price').value, 10);
+    if (name && Number.isFinite(price) && price >= 0) out.push({ name, price });
+  });
+  return out;
+}
+async function saveBuildOptions() {
+  const data = {};
+  BP_ADMIN_GROUPS.forEach(([g, containerId]) => { data[g] = collectBuildGroup(containerId); });
+  try {
+    await SettingsAPI.set('build_pasta_options', JSON.stringify(data));
+    _buildOptions = data;
+    showToast('Build options saved');
+  } catch (err) { showToast('Failed: ' + (err.message || '')); }
 }
 
 // ----- Per-dish add-ons editor -----

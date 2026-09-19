@@ -435,6 +435,7 @@ create policy "public_read_settings"
     'business_hours_start','business_hours_end',
     'kitchen_lat','kitchen_lng','delivery_radius_km',
     'menu_categories','menu_discount_percent','menu_discount_label',
+    'build_pasta_options',
     'ordering_paused','ordering_paused_reason',
     'bg_video_story','bg_video_rewards','bg_video_reviews','bg_video_services',
     'bg_video_opacity_story','bg_video_opacity_rewards','bg_video_opacity_reviews','bg_video_opacity_services'
@@ -663,34 +664,75 @@ begin
   -- Add-ons are priced from the item's own addons column (client prices ignored).
   declare
     v_addon jsonb; v_addon_name text; v_addon_unit int; v_line_addons jsonb;
+    v_bopts jsonb; v_sel jsonb; v_grp text; v_pick text; v_opt jsonb;
+    v_build_price int; v_build_name text; v_parts text; v_build_sel jsonb;
   begin
   for v_it in select value from jsonb_array_elements(p_items) loop
     v_qty := coalesce((v_it->>'qty')::int, 0);
     if v_qty <= 0 then raise exception 'Invalid item quantity'; end if;
-    select * into v_menu from public.menu_items m where m.id = (v_it->>'id') and m.active = true;
-    if not found then raise exception 'Item not available'; end if;
 
-    -- Resolve each selected add-on name against the item's real add-on list.
-    v_addon_unit := 0;
-    v_line_addons := '[]'::jsonb;
-    if jsonb_typeof(v_it->'addons') = 'array' then
-      for v_addon_name in select value::text from jsonb_array_elements_text(v_it->'addons') loop
-        select a into v_addon
-          from jsonb_array_elements(coalesce(v_menu.addons,'[]'::jsonb)) a
-         where a->>'name' = v_addon_name
-         limit 1;
-        if v_addon is not null then
-          v_addon_unit := v_addon_unit + coalesce((v_addon->>'price')::int, 0);
-          v_line_addons := v_line_addons || jsonb_build_object('name', v_addon->>'name', 'price', coalesce((v_addon->>'price')::int,0));
+    if coalesce(v_it->>'build','') = 'true' then
+      -- "Build Your Pasta": price the selection from build_pasta_options.
+      select coalesce(value::jsonb,'{}'::jsonb) into v_bopts
+        from public.site_settings where key='build_pasta_options';
+      v_sel := v_it->'selections';
+      v_build_price := 0; v_parts := ''; v_build_sel := '[]'::jsonb;
+      foreach v_grp in array array['pasta','sauce','protein'] loop
+        v_pick := v_sel->>v_grp;
+        if v_pick is not null and length(v_pick) > 0 then
+          select a into v_opt from jsonb_array_elements(coalesce(v_bopts->v_grp,'[]'::jsonb)) a
+            where a->>'name' = v_pick limit 1;
+          if v_opt is not null then
+            v_build_price := v_build_price + coalesce((v_opt->>'price')::int,0);
+            v_build_sel := v_build_sel || jsonb_build_object('name', v_opt->>'name', 'price', coalesce((v_opt->>'price')::int,0));
+            v_parts := v_parts || case when v_parts='' then '' else ', ' end || (v_opt->>'name');
+          end if;
         end if;
       end loop;
-    end if;
+      if jsonb_typeof(v_sel->'extras') = 'array' then
+        for v_pick in select value::text from jsonb_array_elements_text(v_sel->'extras') loop
+          select a into v_opt from jsonb_array_elements(coalesce(v_bopts->'extras','[]'::jsonb)) a
+            where a->>'name' = v_pick limit 1;
+          if v_opt is not null then
+            v_build_price := v_build_price + coalesce((v_opt->>'price')::int,0);
+            v_build_sel := v_build_sel || jsonb_build_object('name', v_opt->>'name', 'price', coalesce((v_opt->>'price')::int,0));
+            v_parts := v_parts || case when v_parts='' then '' else ', ' end || (v_opt->>'name');
+          end if;
+        end loop;
+      end if;
+      if v_build_price <= 0 then raise exception 'Invalid custom pasta'; end if;
+      v_build_name := 'Build Your Pasta' || case when v_parts='' then '' else ' — ' || v_parts end;
+      v_subtotal  := v_subtotal + v_build_price * v_qty;
+      v_total_qty := v_total_qty + v_qty;
+      v_items := v_items || jsonb_build_object(
+        'id','build','name',v_build_name,'price',v_build_price,'qty',v_qty,
+        'addons', v_build_sel, 'addon_total', 0);
+    else
+      select * into v_menu from public.menu_items m where m.id = (v_it->>'id') and m.active = true;
+      if not found then raise exception 'Item not available'; end if;
 
-    v_subtotal  := v_subtotal + (v_menu.price + v_addon_unit) * v_qty;
-    v_total_qty := v_total_qty + v_qty;
-    v_items := v_items || jsonb_build_object(
-      'id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty,
-      'addons', v_line_addons, 'addon_total', v_addon_unit);
+      -- Resolve each selected add-on name against the item's real add-on list.
+      v_addon_unit := 0;
+      v_line_addons := '[]'::jsonb;
+      if jsonb_typeof(v_it->'addons') = 'array' then
+        for v_addon_name in select value::text from jsonb_array_elements_text(v_it->'addons') loop
+          select a into v_addon
+            from jsonb_array_elements(coalesce(v_menu.addons,'[]'::jsonb)) a
+           where a->>'name' = v_addon_name
+           limit 1;
+          if v_addon is not null then
+            v_addon_unit := v_addon_unit + coalesce((v_addon->>'price')::int, 0);
+            v_line_addons := v_line_addons || jsonb_build_object('name', v_addon->>'name', 'price', coalesce((v_addon->>'price')::int,0));
+          end if;
+        end loop;
+      end if;
+
+      v_subtotal  := v_subtotal + (v_menu.price + v_addon_unit) * v_qty;
+      v_total_qty := v_total_qty + v_qty;
+      v_items := v_items || jsonb_build_object(
+        'id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty,
+        'addons', v_line_addons, 'addon_total', v_addon_unit);
+    end if;
   end loop;
   end;
   if v_subtotal <= 0 then raise exception 'Invalid order total'; end if;
@@ -918,6 +960,10 @@ insert into public.site_settings (key, value) values
   -- tabs and the admin item-form category dropdown. Add future categories here
   -- from admin → Menu.
   ('menu_categories',         '["Pasta","Sides","Salad"]'),
+  -- "Build Your Pasta" customiser options (JSON). Each group is a list of
+  -- {name, price}. Prices are edited in admin → Menu. place_order prices the
+  -- customer's selection from THIS setting (client prices ignored).
+  ('build_pasta_options',     '{"pasta":[{"name":"Fettuccine","price":600},{"name":"Spaghetti","price":600},{"name":"Macaroni","price":550},{"name":"Penne","price":600},{"name":"Fusilli","price":600}],"sauce":[{"name":"Pink","price":0},{"name":"White","price":0},{"name":"Pesto","price":50}],"protein":[{"name":"Chicken","price":150},{"name":"Sausage","price":180},{"name":"No protein","price":0}],"extras":[{"name":"Cheese","price":100},{"name":"Light cheese","price":60},{"name":"Sun-dried tomatoes","price":120}]}'),
   -- Section background videos (uploaded via admin → Site tab)
   ('bg_video_story',          ''),
   ('bg_video_rewards',        ''),

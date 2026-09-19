@@ -594,6 +594,37 @@ a { color: inherit; text-decoration: none; }
 }
 .hero-compact .hero-launch-badge { margin-left: auto; margin-right: auto; }
 
+/* Split hero: text on the left, CTAs on the right, shorter height */
+.hero-split { padding: 92px 24px 30px; text-align: left; }
+.hero-split .hero-compact-inner {
+  max-width: 1080px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  text-align: left;
+}
+.hero-split .hero-split-text { flex: 1 1 auto; min-width: 0; }
+.hero-split .hero-eyebrow { justify-content: flex-start; margin-bottom: 16px; }
+.hero-split .hero-title { margin-bottom: 18px; }
+.hero-split .hero-trust { justify-content: flex-start; margin-top: 18px; }
+.hero-split .hero-launch-badge { margin-left: 0; margin-right: 0; }
+.hero-split .hero-split-cta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 220px;
+}
+.hero-split .hero-split-cta .btn { justify-content: center; }
+.hero-build-btn { font-size: 16px !important; padding: 15px 26px !important; }
+@media (max-width: 760px) {
+  .hero-split { padding: 84px 20px 26px; }
+  .hero-split .hero-compact-inner { flex-direction: column; align-items: flex-start; gap: 22px; }
+  .hero-split .hero-split-cta { width: 100%; min-width: 0; }
+  .hero-split .hero-split-cta .btn { width: 100%; }
+}
+
 /* Menu-wide discount / festive offer banner */
 .promo-banner {
   display: flex;
@@ -2006,6 +2037,14 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
 
 /* Add-ons line inside a cart row */
 .cart-item-addons { font-size: 12px; color: #8B7E6B; margin: 2px 0; }
+
+/* Build Your Pasta groups (reuses the product-modal shell) */
+#buildModal .pm-info { padding-top: 24px; }
+.bp-group { border-top: 1px solid rgba(0, 0, 0, 0.08); padding-top: 12px; margin-top: 8px; }
+.bp-group:first-of-type { border-top: none; margin-top: 0; }
+.bp-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; cursor: pointer; }
+.bp-opt-name { font-weight: 600; font-size: 15px; }
+.bp-opt input { width: 20px; height: 20px; accent-color: #E63946; cursor: pointer; }
 
 .review-card {
   position: relative;

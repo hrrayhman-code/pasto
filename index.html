@@ -214,33 +214,37 @@
   <!-- HERO SECTION                                   -->
   <!-- Edit text content directly here                -->
   <!-- ============================================== -->
-  <section class="hero hero-compact">
+  <section class="hero hero-compact hero-split">
     <div class="noodle-bg"></div>
     <div class="hero-compact-inner">
-      <div class="hero-eyebrow">🍝 Fresh pasta · delivered hot in Karachi</div>
-      <h1 class="hero-title">Order fresh, made-to-order pasta.</h1>
-      <p class="hero-sub">Signature Alfredo, Pink Sauce &amp; more — cooked when you order, delivered hot. Cash, card or bank transfer.</p>
+      <div class="hero-split-text">
+        <div class="hero-eyebrow">🍝 Fresh pasta · delivered hot in Karachi</div>
+        <h1 class="hero-title">Order fresh, made-to-order pasta.</h1>
 
-      <!-- Hero launch badge — auto-hides after launch date -->
-      <div class="hero-launch-badge" id="heroLaunchBadge" hidden>
-        <span class="hero-launch-icon">🍝</span>
-        <span class="hero-launch-text">
-          <strong>Opening 1st July 2026</strong>
-          <span class="hero-launch-sub" id="heroLaunchSub">Get notified when we go live</span>
-        </span>
-        <button class="hero-launch-btn" onclick="openLaunchModal()">Notify me</button>
+        <!-- Hero launch badge — auto-hides after launch date -->
+        <div class="hero-launch-badge" id="heroLaunchBadge" hidden>
+          <span class="hero-launch-icon">🍝</span>
+          <span class="hero-launch-text">
+            <strong>Opening 1st July 2026</strong>
+            <span class="hero-launch-sub" id="heroLaunchSub">Get notified when we go live</span>
+          </span>
+          <button class="hero-launch-btn" onclick="openLaunchModal()">Notify me</button>
+        </div>
+
+        <div class="hero-trust">
+          <span class="hero-trust-item">✔ Made to order</span>
+          <span class="hero-trust-item">✔ Delivered hot</span>
+        </div>
       </div>
 
-      <div class="hero-cta-row">
+      <div class="hero-split-cta">
         <a href="#menu" class="btn btn-primary hero-order-btn">
           Order now
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
         </a>
-      </div>
-
-      <div class="hero-trust">
-        <span class="hero-trust-item">✔ Made to order</span>
-        <span class="hero-trust-item">✔ Delivered hot</span>
+        <button type="button" class="btn btn-secondary hero-build-btn" onclick="openBuildPasta()">
+          🍝 Build your pasta
+        </button>
       </div>
     </div>
   </section>
@@ -468,6 +472,18 @@
   </div>
 
   <!-- ============================================== -->
+  <!-- BUILD YOUR PASTA CUSTOMISER                     -->
+  <!-- ============================================== -->
+  <div class="product-modal" id="buildModal" hidden onclick="if(event.target===this)closeBuildPasta()">
+    <div class="product-modal-card" role="dialog" aria-modal="true" aria-label="Build your pasta">
+      <button class="product-modal-close" onclick="closeBuildPasta()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <div class="product-modal-body" id="buildModalBody"><!-- filled dynamically --></div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
   <!-- STICKY VIEW-CART BAR (shows when cart has items) -->
   <!-- ============================================== -->
   <button class="cart-bar" id="cartBar" hidden onclick="openCart()" aria-label="View cart and check out">
@@ -484,7 +500,7 @@
   <!-- ============================================== -->
   <!-- CART DRAWER                                    -->
   <!-- ============================================== -->
-  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal(); closePausedModal(); closeProductModal();"></div>
+  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal(); closePausedModal(); closeProductModal(); closeBuildPasta();"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-header">
       <div class="cart-title">Your order</div>
