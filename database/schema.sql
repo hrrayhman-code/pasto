@@ -434,7 +434,10 @@ create policy "public_read_settings"
     'delivery_fee','free_delivery_over','hero_image_url',
     'business_hours_start','business_hours_end',
     'kitchen_lat','kitchen_lng','delivery_radius_km',
-    'menu_categories','menu_discount_percent','menu_discount_label'
+    'menu_categories','menu_discount_percent','menu_discount_label',
+    'ordering_paused','ordering_paused_reason',
+    'bg_video_story','bg_video_rewards','bg_video_reviews','bg_video_services',
+    'bg_video_opacity_story','bg_video_opacity_rewards','bg_video_opacity_reviews','bg_video_opacity_services'
   ));
 
 create policy "auth_settings_all"
