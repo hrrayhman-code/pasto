@@ -292,9 +292,14 @@
           Leave a review
         </button>
       </div>
-      <div class="reviews-grid" id="reviewsGrid">
-        <!-- Review cards rendered dynamically -->
+      <div class="reviews-carousel" id="reviewsCarousel">
+        <button class="reviews-arrow left" type="button" aria-label="Previous reviews" onclick="scrollReviews(-1)">‹</button>
+        <div class="reviews-grid" id="reviewsGrid">
+          <!-- Review cards rendered dynamically -->
+        </div>
+        <button class="reviews-arrow right" type="button" aria-label="See more reviews" onclick="scrollReviews(1)">›</button>
       </div>
+      <div class="reviews-hint" id="reviewsHint" hidden>← swipe to see more reviews →</div>
       <div class="reviews-empty" id="reviewsEmpty" hidden>
         <p>No reviews yet — be the first to share your experience.</p>
       </div>

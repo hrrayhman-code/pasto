@@ -1885,12 +1885,69 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
   fill: #f5a623;
 }
 
-.reviews-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
+/* Reviews carousel — horizontal slider instead of showing every card at once */
+.reviews-carousel {
+  position: relative;
   margin-top: 48px;
 }
+
+.reviews-grid {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  padding: 6px 4px 14px;
+  scrollbar-width: none;          /* Firefox */
+}
+.reviews-grid::-webkit-scrollbar { display: none; }  /* WebKit */
+
+.reviews-grid > .review-card {
+  flex: 0 0 clamp(270px, 82%, 340px);   /* ~1 card on phones, several on desktop */
+  scroll-snap-align: start;
+}
+
+.reviews-arrow {
+  position: absolute;
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(26, 26, 26, 0.12);
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.reviews-arrow.left  { left: -12px; }
+.reviews-arrow.right { right: -12px; }
+.reviews-arrow:hover { background: #E63946; color: #fff; border-color: #E63946; }
+.reviews-arrow:active { transform: translateY(-50%) scale(0.94); }
+
+.reviews-hint {
+  text-align: center;
+  font-size: 13px;
+  color: #8B7E6B;
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 768px) {
+  .reviews-arrow { display: flex; }
+  .reviews-hint  { display: none; }
+}
+
+/* With only one review there is nothing to slide to */
+.reviews-carousel.single .reviews-arrow { display: none; }
 
 .review-card {
   position: relative;

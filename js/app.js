@@ -462,7 +462,7 @@ function renderReviewsFromCache() {
       const subBits = [escapeHTML(rev.location), escapeHTML(date)].filter(Boolean).join(' · ');
 
       return `
-        <article class="review-card reveal ${isPinned ? 'pinned' : ''}" data-id="${escapeHTML(id)}">
+        <article class="review-card ${isPinned ? 'pinned' : ''}" data-id="${escapeHTML(id)}">
           ${isPinned ? '<span class="review-pin-flag"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 3l5 5-6 1-3 3 4 4-2 2-4-4-3 3-1-1 3-3-4-4 2-2 4 4 3-3 1-6z"/></svg>Pinned</span>' : ''}
           <div class="review-quote-mark" aria-hidden="true">"</div>
           ${starsHTML(rev.rating)}
@@ -489,6 +489,12 @@ function renderReviewsFromCache() {
     }).join('');
   }
 
+  // Carousel affordances: hide arrows + swipe hint when there's nothing to slide.
+  const hint = document.getElementById('reviewsHint');
+  const carousel = document.getElementById('reviewsCarousel');
+  if (hint) hint.hidden = reviews.length <= 1;
+  if (carousel) carousel.classList.toggle('single', reviews.length <= 1);
+
   if (summary) {
     if (reviews.length === 0) {
       summary.innerHTML = `<span class="reviews-summary-text">Be the first to leave a review.</span>`;
@@ -504,6 +510,15 @@ function renderReviewsFromCache() {
   }
 
   observeReveals();
+}
+
+// Slide the reviews carousel one card left (-1) or right (+1).
+function scrollReviews(dir) {
+  const grid = document.getElementById('reviewsGrid');
+  if (!grid) return;
+  const card = grid.querySelector('.review-card');
+  const step = card ? card.getBoundingClientRect().width + 24 : grid.clientWidth * 0.8;
+  grid.scrollBy({ left: dir * step, behavior: 'smooth' });
 }
 
 async function renderReviews() {
