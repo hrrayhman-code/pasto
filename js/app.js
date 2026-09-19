@@ -17,7 +17,45 @@
 // ==================================================
 // STATE
 // ==================================================
-let cart = JSON.parse(localStorage.getItem('pastoCart') || '{}');
+// Cart is a map of lineKey -> { id, qty, addons:[names] }. Same dish with a
+// different add-on combo is a separate line. lineKey is the plain id when there
+// are no add-ons (so the menu-card +/- stepper always targets the base line).
+let cart = migrateCart(JSON.parse(localStorage.getItem('pastoCart') || '{}'));
+
+function migrateCart(raw) {
+  const out = {};
+  Object.entries(raw || {}).forEach(([key, val]) => {
+    if (typeof val === 'number') {
+      // Legacy format: { id: qty }
+      if (val > 0) out[key] = { id: key, qty: val, addons: [] };
+    } else if (val && typeof val === 'object' && val.id) {
+      out[key] = { id: val.id, qty: val.qty || 0, addons: Array.isArray(val.addons) ? val.addons : [] };
+    }
+  });
+  return out;
+}
+
+// Stable key for a cart line: plain id when no add-ons, else id#addonA|addonB.
+function lineKey(id, addons) {
+  const a = (addons || []).slice().sort();
+  return a.length ? id + '#' + a.join('|') : id;
+}
+function itemById(id) { return MENU.find(m => m.id === id); }
+// Sum of the prices of the named add-ons, looked up on the item.
+function addonUnitTotal(item, addons) {
+  if (!item || !addons || !addons.length) return 0;
+  const list = item.addons || [];
+  return addons.reduce((s, name) => {
+    const a = list.find(x => x.name === name);
+    return s + (a ? Number(a.price) || 0 : 0);
+  }, 0);
+}
+// Full per-unit price of a cart line (base + selected add-ons).
+function lineUnitPrice(line) {
+  const item = itemById(line.id);
+  if (!item) return 0;
+  return (Number(item.price) || 0) + addonUnitTotal(item, line.addons);
+}
 
 
 // ==================================================
@@ -95,7 +133,7 @@ function dishVisual(item, size = 'large') {
 // RENDER MENU
 // ==================================================
 function menuCardControlHTML(id) {
-  const qty = cart[id] || 0;
+  const qty = cart[id]?.qty || 0;
   if (qty > 0) {
     return `
       <div class="menu-qty" data-id="${id}">
@@ -193,18 +231,23 @@ function renderMenu() {
   renderCategoryTabs();
   filterMenuCategory(_activeMenuCat, null);
 
-  // Delegated: tapping a dish photo opens the lightbox (idempotent).
+  // Delegated: tapping a card (anywhere except the +/- and Add controls)
+  // opens the product popup with description, photo and add-ons.
   grid.onclick = (e) => {
-    const vis = e.target.closest('.menu-card-visual.has-photo');
-    if (!vis) return;
-    openDishLightbox(vis.getAttribute('data-photo'), vis.getAttribute('data-name'));
+    if (e.target.closest('.menu-card-control')) return; // let Add / +/- work
+    const card = e.target.closest('.menu-card[data-id]');
+    if (!card) return;
+    openProductModal(card.getAttribute('data-id'));
   };
   grid.onkeydown = (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const vis = e.target.closest('.menu-card-visual.has-photo');
+    if (e.target.closest('.menu-card-control')) return;
+    const vis = e.target.closest('.menu-card-visual');
     if (!vis) return;
+    const card = vis.closest('.menu-card[data-id]');
+    if (!card) return;
     e.preventDefault();
-    openDishLightbox(vis.getAttribute('data-photo'), vis.getAttribute('data-name'));
+    openProductModal(card.getAttribute('data-id'));
   };
 }
 
@@ -229,6 +272,101 @@ function closeDishLightbox() {
   const img = document.getElementById('dishLightboxImg');
   if (img) img.src = '';
   document.body.style.overflow = '';
+}
+
+// ----- Product popup (photo, description, add-ons, quantity) -----
+let _pm = { id: null, qty: 1, addons: new Set() };
+
+function openProductModal(id) {
+  const item = itemById(id);
+  if (!item) return;
+  _pm = { id, qty: 1, addons: new Set() };
+
+  const box = document.getElementById('productModal');
+  const bodyEl = document.getElementById('productModalBody');
+  if (!box || !bodyEl) return;
+
+  const addons = Array.isArray(item.addons) ? item.addons : [];
+  const disc = unitDiscount(item.price);
+  const priceHTML = disc > 0
+    ? `<span class="pm-price-old">${CONFIG.currency} ${item.price}</span> <span class="pm-price">${CONFIG.currency} ${item.price - disc}</span>`
+    : `<span class="pm-price">${CONFIG.currency} ${item.price}</span>`;
+
+  const visual = item.imageUrl
+    ? `<div class="pm-photo"><img src="${escapeHTML(item.imageUrl)}" alt="${escapeHTML(item.name)}"></div>`
+    : `<div class="pm-photo pm-photo-svg">${dishVisual(item)}</div>`;
+
+  const addonsHTML = addons.length ? `
+    <div class="pm-addons">
+      <div class="pm-addons-title">Add-ons</div>
+      ${addons.map((a, i) => `
+        <label class="pm-addon">
+          <span class="pm-addon-name">${escapeHTML(a.name)}</span>
+          <span class="pm-addon-right">
+            <span class="pm-addon-price">+ ${CONFIG.currency} ${Number(a.price) || 0}</span>
+            <input type="checkbox" data-name="${escapeHTML(a.name)}" onchange="pmToggleAddon(this)">
+          </span>
+        </label>
+      `).join('')}
+    </div>` : '';
+
+  bodyEl.innerHTML = `
+    ${visual}
+    <div class="pm-info">
+      <h3 class="pm-name">${escapeHTML(item.name)}</h3>
+      <div class="pm-price-row">${priceHTML}</div>
+      <p class="pm-desc">${escapeHTML(item.desc || '')}</p>
+      ${addonsHTML}
+      <div class="pm-foot">
+        <div class="pm-qty">
+          <button class="qty-btn" onclick="pmChangeQty(-1)" aria-label="Decrease">−</button>
+          <span class="qty-val" id="pmQty">1</span>
+          <button class="qty-btn" onclick="pmChangeQty(1)" aria-label="Increase">+</button>
+        </div>
+        <button class="pm-add" onclick="pmAddToCart()">Add to cart · <span id="pmTotal"></span></button>
+      </div>
+    </div>
+  `;
+  pmUpdateTotal();
+  box.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProductModal() {
+  const box = document.getElementById('productModal');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.style.overflow = '';
+}
+
+function pmToggleAddon(el) {
+  const name = el.getAttribute('data-name');
+  if (el.checked) _pm.addons.add(name); else _pm.addons.delete(name);
+  pmUpdateTotal();
+}
+function pmChangeQty(delta) {
+  _pm.qty = Math.max(1, _pm.qty + delta);
+  const q = document.getElementById('pmQty');
+  if (q) q.textContent = _pm.qty;
+  pmUpdateTotal();
+}
+function pmUnitPrice() {
+  const item = itemById(_pm.id);
+  if (!item) return 0;
+  // Full base price + add-ons; any menu-wide discount is shown separately in the cart.
+  return (Number(item.price) || 0) + addonUnitTotal(item, [..._pm.addons]);
+}
+function pmUpdateTotal() {
+  const el = document.getElementById('pmTotal');
+  if (el) el.textContent = `${CONFIG.currency} ${pmUnitPrice() * _pm.qty}`;
+}
+function pmAddToCart() {
+  if (isPreLaunch()) { closeProductModal(); openLaunchModal(); return; }
+  const id = _pm.id;
+  addLineToCart(id, [..._pm.addons], _pm.qty);
+  const item = itemById(id);
+  closeProductModal();
+  showToast(`${item ? item.name : 'Item'} added to cart`);
 }
 
 // Active menu category slug ('all' | 'pasta' | 'sides' | 'salad' | …)
@@ -997,8 +1135,8 @@ function addToCart(id) {
     openLaunchModal();
     return;
   }
-  const wasInCart = (cart[id] || 0) > 0;
-  cart[id] = (cart[id] || 0) + 1;
+  const wasInCart = (cart[id]?.qty || 0) > 0;
+  cart[id] = { id, qty: (cart[id]?.qty || 0) + 1, addons: [] };
   saveCart();
   renderCart();
   updateCartCount();
@@ -1023,9 +1161,25 @@ function addToCart(id) {
   showToast(`${item.name} added to cart`);
 }
 
-function changeQty(id, delta) {
-  cart[id] = Math.max(0, (cart[id] || 0) + delta);
-  if (cart[id] === 0) delete cart[id];
+// Change the quantity of a cart line by its key (base card passes the id).
+function changeQty(key, delta) {
+  const line = cart[key];
+  if (!line) return;
+  const itemId = line.id;
+  line.qty = Math.max(0, (line.qty || 0) + delta);
+  if (line.qty === 0) delete cart[key];
+  saveCart();
+  renderCart();
+  updateCartCount();
+  updateMenuCardControl(itemId);
+}
+
+// Add a line with a specific add-on selection (from the product popup).
+function addLineToCart(id, addons, qty) {
+  const clean = (addons || []).slice();
+  const key = lineKey(id, clean);
+  const existing = cart[key];
+  cart[key] = { id, qty: (existing?.qty || 0) + (qty || 1), addons: clean };
   saveCart();
   renderCart();
   updateCartCount();
@@ -1037,14 +1191,11 @@ function saveCart() {
 }
 
 function cartItemCount() {
-  return Object.values(cart).reduce((sum, q) => sum + q, 0);
+  return Object.values(cart).reduce((sum, l) => sum + (l.qty || 0), 0);
 }
 
 function cartTotal() {
-  return Object.entries(cart).reduce((sum, [id, qty]) => {
-    const item = MENU.find(m => m.id === id);
-    return sum + (item ? item.price * qty : 0);
-  }, 0);
+  return Object.values(cart).reduce((sum, l) => sum + lineUnitPrice(l) * (l.qty || 0), 0);
 }
 
 // "Buy 5, get 1 free" — when the cart has 5+ items in it (any mix),
@@ -1054,8 +1205,8 @@ function bulkFreeDiscount() {
   const totalQty = cartItemCount();
   if (totalQty < 5) return { qualifies: false, freeItem: null, amount: 0 };
   let cheapest = null;
-  Object.keys(cart).forEach(id => {
-    const item = MENU.find(m => m.id === id);
+  Object.values(cart).forEach(line => {
+    const item = MENU.find(m => m.id === line.id);
     if (!item) return;
     if (cheapest === null || item.price < cheapest.price) cheapest = item;
   });
@@ -1093,6 +1244,7 @@ function renderCart() {
   const ids = Object.keys(cart);
 
   if (ids.length === 0) {
+    // (empty state below)
     body.innerHTML = `
       <div class="cart-empty">
         <svg class="cart-empty-icon" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
@@ -1107,20 +1259,27 @@ function renderCart() {
     `;
   } else {
     const bulk = bulkFreeDiscount();
-    const itemsHTML = ids.map(id => {
-      const item = MENU.find(m => m.id === id);
-      const qty = cart[id];
+    const itemsHTML = Object.entries(cart).map(([key, line]) => {
+      const item = MENU.find(m => m.id === line.id);
+      if (!item) return '';
+      const qty = line.qty;
+      const unit = lineUnitPrice(line);
+      const addonsHTML = (line.addons && line.addons.length)
+        ? `<div class="cart-item-addons">+ ${line.addons.map(escapeHTML).join(', ')}</div>`
+        : '';
+      const safeKey = key.replace(/'/g, "\\'");
       return `
         <div class="cart-item">
           <div class="cart-item-icon">${dishVisual(item)}</div>
           <div class="cart-item-info">
             <div class="cart-item-name">${escapeHTML(item.name)}</div>
-            <div class="cart-item-price">${CONFIG.currency} ${item.price} × ${qty} = ${CONFIG.currency} ${item.price * qty}</div>
+            ${addonsHTML}
+            <div class="cart-item-price">${CONFIG.currency} ${unit} × ${qty} = ${CONFIG.currency} ${unit * qty}</div>
           </div>
           <div class="cart-qty">
-            <button class="qty-btn" onclick="changeQty('${id}', -1)" aria-label="Decrease">−</button>
+            <button class="qty-btn" onclick="changeQty('${safeKey}', -1)" aria-label="Decrease">−</button>
             <span class="qty-val">${qty}</span>
-            <button class="qty-btn" onclick="changeQty('${id}', 1)" aria-label="Increase">+</button>
+            <button class="qty-btn" onclick="changeQty('${safeKey}', 1)" aria-label="Increase">+</button>
           </div>
         </div>
       `;
@@ -1504,8 +1663,9 @@ async function submitOrder() {
     return;
   }
 
-  // Server recomputes name/price/total from menu_items — send only id + qty.
-  const items = Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+  // Server recomputes name/price/total from menu_items — send id + qty + add-on
+  // names only (add-on prices are looked up server-side, never trusted).
+  const items = Object.values(cart).map(l => ({ id: l.id, qty: l.qty, addons: l.addons || [] }));
   if (items.length === 0) { showToast('Your cart is empty'); return; }
 
   const payMethod = selectedPayMethod();   // 'cod' | 'prepay'
@@ -2050,6 +2210,7 @@ async function loadMenuFromDB() {
         tag:         r.tag,
         tagLabel:    r.tag_label,
         category:    r.category,
+        addons:      Array.isArray(r.addons) ? r.addons : [],
         imageUrl:    r.image_url,
         iconColor:   r.icon_color,
         accentColor: r.accent_color

@@ -456,6 +456,18 @@
   </div>
 
   <!-- ============================================== -->
+  <!-- PRODUCT POPUP (photo, description, add-ons)    -->
+  <!-- ============================================== -->
+  <div class="product-modal" id="productModal" hidden onclick="if(event.target===this)closeProductModal()">
+    <div class="product-modal-card" role="dialog" aria-modal="true" aria-label="Product details">
+      <button class="product-modal-close" onclick="closeProductModal()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <div class="product-modal-body" id="productModalBody"><!-- filled dynamically --></div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
   <!-- STICKY VIEW-CART BAR (shows when cart has items) -->
   <!-- ============================================== -->
   <button class="cart-bar" id="cartBar" hidden onclick="openCart()" aria-label="View cart and check out">
@@ -472,7 +484,7 @@
   <!-- ============================================== -->
   <!-- CART DRAWER                                    -->
   <!-- ============================================== -->
-  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal(); closePausedModal();"></div>
+  <div class="overlay" id="overlay" onclick="closeCart(); closeModal(); closeReviewModal(); closeLaunchModal(); closeOrderConfirmModal(); closeClosedModal(); closePausedModal(); closeProductModal();"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-header">
       <div class="cart-title">Your order</div>

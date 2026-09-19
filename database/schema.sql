@@ -397,6 +397,11 @@ on conflict (id) do nothing;
 -- full ordered list of categories lives in site_settings.menu_categories.
 alter table public.menu_items add column if not exists category text;
 
+-- Per-dish add-ons, e.g. [{"name":"Extra cheese","price":100}]. Customers can
+-- pick these on the product popup; place_order prices them from THIS column
+-- (never trusting client-sent prices).
+alter table public.menu_items add column if not exists addons jsonb not null default '[]'::jsonb;
+
 -- Backfill category for rows that don't have one yet (first run / legacy rows).
 -- Uses the old tag_label convention: 'Side' items -> 'Sides', everything else
 -- -> 'Pasta'. Guarded by "category is null" so it never clobbers admin edits.
@@ -651,16 +656,40 @@ begin
     end if;
   end if;
 
-  -- Subtotal from real menu prices; snapshot items with server-side name+price
+  -- Subtotal from real menu prices; snapshot items with server-side name+price.
+  -- Add-ons are priced from the item's own addons column (client prices ignored).
+  declare
+    v_addon jsonb; v_addon_name text; v_addon_unit int; v_line_addons jsonb;
+  begin
   for v_it in select value from jsonb_array_elements(p_items) loop
     v_qty := coalesce((v_it->>'qty')::int, 0);
     if v_qty <= 0 then raise exception 'Invalid item quantity'; end if;
     select * into v_menu from public.menu_items m where m.id = (v_it->>'id') and m.active = true;
     if not found then raise exception 'Item not available'; end if;
-    v_subtotal  := v_subtotal + v_menu.price * v_qty;
+
+    -- Resolve each selected add-on name against the item's real add-on list.
+    v_addon_unit := 0;
+    v_line_addons := '[]'::jsonb;
+    if jsonb_typeof(v_it->'addons') = 'array' then
+      for v_addon_name in select value::text from jsonb_array_elements_text(v_it->'addons') loop
+        select a into v_addon
+          from jsonb_array_elements(coalesce(v_menu.addons,'[]'::jsonb)) a
+         where a->>'name' = v_addon_name
+         limit 1;
+        if v_addon is not null then
+          v_addon_unit := v_addon_unit + coalesce((v_addon->>'price')::int, 0);
+          v_line_addons := v_line_addons || jsonb_build_object('name', v_addon->>'name', 'price', coalesce((v_addon->>'price')::int,0));
+        end if;
+      end loop;
+    end if;
+
+    v_subtotal  := v_subtotal + (v_menu.price + v_addon_unit) * v_qty;
     v_total_qty := v_total_qty + v_qty;
-    v_items := v_items || jsonb_build_object('id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty);
+    v_items := v_items || jsonb_build_object(
+      'id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty,
+      'addons', v_line_addons, 'addon_total', v_addon_unit);
   end loop;
+  end;
   if v_subtotal <= 0 then raise exception 'Invalid order total'; end if;
 
   -- Delivery fee (admin-set; optional free-over threshold)

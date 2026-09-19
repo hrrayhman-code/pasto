@@ -1949,6 +1949,64 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
 /* With only one review there is nothing to slide to */
 .reviews-carousel.single .reviews-arrow { display: none; }
 
+/* ============ Product popup (clickable menu items + add-ons) ============ */
+.menu-card { cursor: pointer; }
+.menu-card .menu-card-control { cursor: default; }
+
+.product-modal {
+  position: fixed; inset: 0; z-index: 1200;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(26, 26, 26, 0.55);
+}
+.product-modal[hidden] { display: none; }
+@media (min-width: 640px) {
+  .product-modal { align-items: center; padding: 24px; }
+}
+.product-modal-card {
+  position: relative;
+  background: #FFF8F0;
+  width: 100%; max-width: 460px;
+  max-height: 92vh; overflow-y: auto;
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, 0.4);
+  animation: pmUp 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes pmUp { from { transform: translateY(30px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+@media (min-width: 640px) { .product-modal-card { border-radius: 22px; } }
+.product-modal-close {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: none; background: rgba(255, 255, 255, 0.92); color: #1a1a1a;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+.product-modal-close svg { width: 18px; height: 18px; }
+.pm-photo { width: 100%; height: 220px; overflow: hidden; background: #f0e6d6; border-radius: 22px 22px 0 0; }
+.pm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pm-photo-svg { display: flex; align-items: center; justify-content: center; }
+.pm-photo-svg svg { width: 120px; height: 120px; }
+.pm-info { padding: 18px 20px 22px; }
+.pm-name { font-size: 22px; margin: 0 0 6px; }
+.pm-price-row { margin-bottom: 10px; }
+.pm-price { font-weight: 800; color: #E63946; font-size: 18px; }
+.pm-price-old { text-decoration: line-through; color: #8B7E6B; margin-right: 6px; font-size: 15px; }
+.pm-desc { color: #5c5347; font-size: 14px; line-height: 1.5; margin: 0 0 16px; }
+.pm-addons { border-top: 1px solid rgba(0, 0, 0, 0.08); padding-top: 14px; }
+.pm-addons-title { font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #8B7E6B; margin-bottom: 6px; }
+.pm-addon { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px dashed rgba(0, 0, 0, 0.08); cursor: pointer; }
+.pm-addon:last-child { border-bottom: none; }
+.pm-addon-name { font-weight: 600; font-size: 15px; }
+.pm-addon-right { display: inline-flex; align-items: center; gap: 10px; }
+.pm-addon-price { color: #2d6a3f; font-weight: 700; font-size: 14px; }
+.pm-addon input { width: 20px; height: 20px; accent-color: #E63946; cursor: pointer; }
+.pm-foot { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+.pm-qty { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid rgba(0, 0, 0, 0.15); border-radius: 100px; padding: 4px; }
+.pm-add { flex: 1; border: none; background: #E63946; color: #fff; font-weight: 800; font-size: 15px; padding: 14px; border-radius: 100px; cursor: pointer; }
+.pm-add:active { transform: scale(0.98); }
+
+/* Add-ons line inside a cart row */
+.cart-item-addons { font-size: 12px; color: #8B7E6B; margin: 2px 0; }
+
 .review-card {
   position: relative;
   background: var(--cream-dark);

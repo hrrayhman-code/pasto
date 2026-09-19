@@ -515,9 +515,14 @@ function timeAgo(ts) {
 }
 
 function renderOrderRow(o) {
-  const itemsHTML = (o.items || []).map(it =>
-    `<li>${Number(it.qty) || 0}× ${escapeHTML(it.name)} <span class="ord-item-price">Rs. ${(Number(it.price) || 0) * (Number(it.qty) || 0)}</span></li>`
-  ).join('');
+  const itemsHTML = (o.items || []).map(it => {
+    const qty = Number(it.qty) || 0;
+    const lineTotal = ((Number(it.price) || 0) + (Number(it.addon_total) || 0)) * qty;
+    const addons = Array.isArray(it.addons) && it.addons.length
+      ? `<div class="ord-item-addons" style="font-size:11px;color:#8B7E6B;">+ ${it.addons.map(a => escapeHTML(a.name)).join(', ')}</div>`
+      : '';
+    return `<li>${qty}× ${escapeHTML(it.name)}${addons} <span class="ord-item-price">Rs. ${lineTotal}</span></li>`;
+  }).join('');
 
   const next = NEXT_STATUS[o.status];
   const prev = PREV_STATUS[o.status];
@@ -858,6 +863,31 @@ function renderMenuRow(m) {
   `;
 }
 
+// ----- Per-dish add-ons editor -----
+function addAddonRow(name, price) {
+  const wrap = document.getElementById('miAddonRows');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'addon-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
+  row.innerHTML = `
+    <input type="text" class="addon-name" placeholder="e.g. Extra cheese" maxlength="40" style="flex:2;min-width:0;">
+    <input type="number" class="addon-price" placeholder="Price (Rs.)" min="0" style="flex:1;min-width:0;">
+    <button type="button" class="admin-action danger" onclick="this.closest('.addon-row').remove()" aria-label="Remove add-on">✕</button>`;
+  row.querySelector('.addon-name').value = name || '';
+  row.querySelector('.addon-price').value = (price === 0 || price) ? price : '';
+  wrap.appendChild(row);
+}
+function collectAddons() {
+  const out = [];
+  document.querySelectorAll('#miAddonRows .addon-row').forEach(r => {
+    const name = r.querySelector('.addon-name').value.trim();
+    const price = parseInt(r.querySelector('.addon-price').value, 10);
+    if (name && Number.isFinite(price) && price >= 0) out.push({ name, price });
+  });
+  return out;
+}
+
 function openMenuForm() {
   resetMenuForm();
   document.getElementById('menuForm').hidden = false;
@@ -878,6 +908,8 @@ function resetMenuForm() {
   document.getElementById('miAccentColor').value = '#E63946';
   document.getElementById('miActive').checked = true;
   populateCategorySelect(_categories[0] || 'Pasta');
+  const rows = document.getElementById('miAddonRows');
+  if (rows) rows.innerHTML = '';
 }
 
 function editMenuItem(id) {
@@ -893,6 +925,11 @@ function editMenuItem(id) {
   document.getElementById('miTag').value = m.tag || 'signature';
   document.getElementById('miTagLabel').value = m.tag_label || '';
   populateCategorySelect(m.category || _categories[0] || 'Pasta');
+  const addonRows = document.getElementById('miAddonRows');
+  if (addonRows) {
+    addonRows.innerHTML = '';
+    (Array.isArray(m.addons) ? m.addons : []).forEach(a => addAddonRow(a.name, a.price));
+  }
   document.getElementById('miIconColor').value = m.icon_color || '#FFF8F0';
   document.getElementById('miAccentColor').value = m.accent_color || '#E63946';
   document.getElementById('miSortOrder').value = m.sort_order || 0;
@@ -936,6 +973,7 @@ async function saveMenuItem(e) {
       tag: document.getElementById('miTag').value || 'signature',
       tag_label: document.getElementById('miTagLabel').value.trim() || 'Signature',
       category: document.getElementById('miCategory').value || _categories[0] || 'Pasta',
+      addons: collectAddons(),
       icon_color: document.getElementById('miIconColor').value,
       accent_color: document.getElementById('miAccentColor').value,
       sort_order: parseInt(document.getElementById('miSortOrder').value, 10) || 0,
@@ -1704,12 +1742,17 @@ function populateAlertModal(o) {
     (PAY_METHOD_LABELS && PAY_METHOD_LABELS[o.payment_method]) || o.payment_method || 'Cash on delivery';
   document.getElementById('noaTotal').textContent = `Rs. ${o.total}`;
 
-  const itemsHTML = (o.items || []).map(it =>
-    `<div class="noa-item">
-       <span>${Number(it.qty) || 0}× ${escapeHTML(it.name)}</span>
-       <span>Rs. ${(Number(it.price) || 0) * (Number(it.qty) || 0)}</span>
-     </div>`
-  ).join('');
+  const itemsHTML = (o.items || []).map(it => {
+    const qty = Number(it.qty) || 0;
+    const lineTotal = ((Number(it.price) || 0) + (Number(it.addon_total) || 0)) * qty;
+    const addons = Array.isArray(it.addons) && it.addons.length
+      ? ` <em style="color:#8B7E6B;font-style:normal;">(+ ${it.addons.map(a => escapeHTML(a.name)).join(', ')})</em>`
+      : '';
+    return `<div class="noa-item">
+       <span>${qty}× ${escapeHTML(it.name)}${addons}</span>
+       <span>Rs. ${lineTotal}</span>
+     </div>`;
+  }).join('');
   document.getElementById('noaItems').innerHTML = itemsHTML || '<div class="noa-item">(No items)</div>';
 }
 
