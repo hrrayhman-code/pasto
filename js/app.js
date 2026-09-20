@@ -1383,7 +1383,16 @@ function updateCartBar(count) {
   const n = (count === undefined) ? cartItemCount() : count;
   if (n > 0) {
     document.getElementById('cartBarCount').textContent = n;
-    document.getElementById('cartBarTotal').textContent = `${CONFIG.currency} ${cartTotal()}`;
+    // Reflect any discount (menu-wide % / buy-5-free) in the bar total.
+    const subtotal = cartTotal();
+    const disc = Math.min(regularSubtotal(), bulkFreeDiscount().amount + menuWideDiscount());
+    const payable = Math.max(0, subtotal - disc);
+    const totalEl = document.getElementById('cartBarTotal');
+    if (disc > 0) {
+      totalEl.innerHTML = `<span class="cart-bar-strike">${CONFIG.currency} ${subtotal}</span> ${CONFIG.currency} ${payable}`;
+    } else {
+      totalEl.textContent = `${CONFIG.currency} ${subtotal}`;
+    }
     bar.hidden = false;
     document.body.classList.add('has-cart-bar');
   } else {
