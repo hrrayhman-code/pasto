@@ -603,6 +603,7 @@ declare
   v_it jsonb; v_qty int; v_menu public.menu_items%rowtype;
   v_items jsonb := '[]'::jsonb;
   v_subtotal int := 0; v_total_qty int := 0; v_cheapest int := 0;
+  v_reg_subtotal int := 0; v_reg_qty int := 0;  -- excludes Build Your Pasta lines (no discounts on custom builds)
   v_delivery int := 0; v_fee int := 0; v_free_over int := 0;
   v_discount int := 0; v_bulk_free int := 0; v_free_used boolean := false;
   v_coupon text := null; v_coupon_disc int := 0; v_prepay_pct int := 0;
@@ -729,6 +730,8 @@ begin
 
       v_subtotal  := v_subtotal + (v_menu.price + v_addon_unit) * v_qty;
       v_total_qty := v_total_qty + v_qty;
+      v_reg_subtotal := v_reg_subtotal + (v_menu.price + v_addon_unit) * v_qty;  -- discountable
+      v_reg_qty := v_reg_qty + v_qty;
       v_items := v_items || jsonb_build_object(
         'id',v_menu.id,'name',v_menu.name,'price',v_menu.price,'qty',v_qty,
         'addons', v_line_addons, 'addon_total', v_addon_unit);
@@ -743,10 +746,11 @@ begin
   v_fee := coalesce(v_fee,0); v_free_over := coalesce(v_free_over,0);
   v_delivery := case when v_free_over > 0 and v_subtotal >= v_free_over then 0 else v_fee end;
 
-  -- Buy 5 get 1 free (cheapest item), server prices
-  if v_total_qty >= 5 then
+  -- Buy 5 get 1 free (cheapest item), server prices — custom builds excluded.
+  if v_reg_qty >= 5 then
     select min((it->>'price')::int) into v_cheapest
-      from jsonb_array_elements(v_items) it where (it->>'price')::int > 0;
+      from jsonb_array_elements(v_items) it
+      where (it->>'price')::int > 0 and coalesce(it->>'id','') <> 'build';
     v_bulk_free := coalesce(v_cheapest,0);
     v_discount := v_discount + v_bulk_free; v_free_used := v_bulk_free > 0;
   end if;
@@ -756,7 +760,7 @@ begin
     perform 1 from public.coupons
       where upper(code)=upper(p_coupon_code) and (max_uses is null or used_count<max_uses) for update;
     select computed_discount, code into v_coupon_disc, v_coupon
-      from public.validate_coupon(p_coupon_code, v_subtotal, p_phone) where ok=true;
+      from public.validate_coupon(p_coupon_code, v_reg_subtotal, p_phone) where ok=true;
     if v_coupon is null then raise exception 'Invalid or expired coupon'; end if;
     v_discount := v_discount + v_coupon_disc;
   end if;
@@ -764,17 +768,17 @@ begin
   -- Prepay discount (admin-controlled %)
   if p_payment_method='prepay' then
     select coalesce(value::int,0) into v_prepay_pct from public.site_settings where key='prepay_discount_percent';
-    v_discount := v_discount + round(v_subtotal * coalesce(v_prepay_pct,0) / 100.0);
+    v_discount := v_discount + round(v_reg_subtotal * coalesce(v_prepay_pct,0) / 100.0);
   end if;
 
-  -- Menu-wide discount (admin-controlled %, applies to the menu subtotal
-  -- only — never the delivery fee, which is added separately below).
+  -- Menu-wide discount (admin-controlled %, applies to the regular menu subtotal
+  -- only — never custom builds, and never the delivery fee added below).
   select coalesce(value::int,0) into v_menu_disc_pct from public.site_settings where key='menu_discount_percent';
   if coalesce(v_menu_disc_pct,0) > 0 then
-    v_discount := v_discount + round(v_subtotal * v_menu_disc_pct / 100.0);
+    v_discount := v_discount + round(v_reg_subtotal * v_menu_disc_pct / 100.0);
   end if;
 
-  v_discount := least(v_discount, v_subtotal);
+  v_discount := least(v_discount, v_reg_subtotal);
   -- Both start 'pending' (COD = pay on delivery; prepay = awaiting payment).
   -- Prepay flips to 'awaiting_verification' only when the screenshot is attached.
   v_pay_status := 'pending';

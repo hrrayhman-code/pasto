@@ -399,9 +399,8 @@ const BP_GROUPS = [
 ];
 let _bp = { pasta: null, sauce: null, protein: null, extras: new Set(), qty: 1 };
 
-// Master switch for the Build Your Pasta feature. Set to true to show it once
-// the pricing is set up in admin.
-const BUILD_PASTA_ENABLED = false;
+// Master switch for the Build Your Pasta feature.
+const BUILD_PASTA_ENABLED = true;
 
 function buildConfigured() {
   return (BUILD_OPTIONS.pasta || []).length && (BUILD_OPTIONS.sauce || []).length && (BUILD_OPTIONS.protein || []).length;
@@ -424,14 +423,13 @@ function openBuildPasta() {
     const opts = BUILD_OPTIONS[g.key] || [];
     if (!opts.length) return '';
     const rows = opts.map(o => {
-      const price = Number(o.price) || 0;
-      const priceLabel = price > 0 ? `+ ${CONFIG.currency} ${price}` : 'Free';
+      // Per-option prices are intentionally hidden; only the final total is shown.
       const input = g.type === 'multi'
         ? `<input type="checkbox" data-group="${g.key}" data-name="${escapeHTML(o.name)}" onchange="bpToggle(this)">`
         : `<input type="radio" name="bp-${g.key}" data-group="${g.key}" data-name="${escapeHTML(o.name)}" onchange="bpToggle(this)">`;
       return `<label class="bp-opt">
         <span class="bp-opt-name">${escapeHTML(o.name)}</span>
-        <span class="pm-addon-right"><span class="pm-addon-price">${priceLabel}</span>${input}</span>
+        <span class="pm-addon-right">${input}</span>
       </label>`;
     }).join('');
     return `<div class="bp-group"><div class="pm-addons-title">${escapeHTML(g.label)}${g.required ? ' *' : ''}</div>${rows}</div>`;
@@ -1338,22 +1336,27 @@ function cartTotal() {
   return Object.values(cart).reduce((sum, l) => sum + lineUnitPrice(l) * (l.qty || 0), 0);
 }
 
+// Discountable portion of the cart: everything EXCEPT custom "Build Your Pasta"
+// lines, which never get discounts (menu-wide %, coupon, bank/prepay, buy-5).
+function regularSubtotal() {
+  return Object.values(cart).reduce((sum, l) => sum + (l.build ? 0 : lineUnitPrice(l) * (l.qty || 0)), 0);
+}
+function regularQty() {
+  return Object.values(cart).reduce((sum, l) => sum + (l.build ? 0 : (l.qty || 0)), 0);
+}
+
 // "Buy 5, get 1 free" — when the cart has 5+ items in it (any mix),
 // the cheapest item's price is automatically deducted. Returns
 // { qualifies, freeItem, amount } so the UI can show it nicely.
 function bulkFreeDiscount() {
-  const totalQty = cartItemCount();
-  if (totalQty < 5) return { qualifies: false, freeItem: null, amount: 0 };
+  // Custom builds don't count toward the threshold and can't be the free item.
+  if (regularQty() < 5) return { qualifies: false, freeItem: null, amount: 0 };
   let cheapest = null;
   Object.values(cart).forEach(line => {
-    let price, name;
-    if (line.build) { price = buildLinePrice(line.build); name = 'Build Your Pasta'; }
-    else {
-      const item = MENU.find(m => m.id === line.id);
-      if (!item) return;
-      price = item.price; name = item.name;
-    }
-    if (cheapest === null || price < cheapest.price) cheapest = { price, name };
+    if (line.build) return;
+    const item = MENU.find(m => m.id === line.id);
+    if (!item) return;
+    if (cheapest === null || item.price < cheapest.price) cheapest = { price: item.price, name: item.name };
   });
   return cheapest
     ? { qualifies: true, freeItem: cheapest, amount: cheapest.price }
@@ -1453,9 +1456,9 @@ function renderCart() {
           You've ordered 5+ items — your <strong>${bulk.freeItem.name}</strong> is on us!
         </div>
       </div>
-    ` : (cartItemCount() > 0 ? `
+    ` : (regularQty() > 0 ? `
       <div class="cart-bulk-hint">
-        Add ${5 - cartItemCount()} more item${5 - cartItemCount() === 1 ? '' : 's'} to get the cheapest one <strong>free</strong>.
+        Add ${5 - regularQty()} more item${5 - regularQty() === 1 ? '' : 's'} to get the cheapest one <strong>free</strong>.
       </div>
     ` : '');
 
@@ -1466,7 +1469,8 @@ function renderCart() {
   const subtotal = cartTotal();
   const bulk = bulkFreeDiscount();
   const menuDisc = menuWideDiscount();
-  const payable = Math.max(0, subtotal - bulk.amount - menuDisc);
+  const disc = Math.min(regularSubtotal(), bulk.amount + menuDisc);
+  const payable = Math.max(0, subtotal - disc);
   const totalEl = document.getElementById('cartTotal');
   if (bulk.qualifies || menuDisc > 0) {
     totalEl.innerHTML = `
@@ -1590,7 +1594,7 @@ function selectedPayMethod() {
 const BANK_TRANSFER_DISCOUNT_PCT = 5;
 function bankTransferDiscount() {
   if (selectedPayMethod() !== 'bank_transfer') return 0;
-  return Math.round(cartTotal() * BANK_TRANSFER_DISCOUNT_PCT / 100);
+  return Math.round(regularSubtotal() * BANK_TRANSFER_DISCOUNT_PCT / 100);
 }
 
 // Admin-controlled menu-wide discount (% off the menu subtotal, never delivery).
@@ -1599,7 +1603,7 @@ let _menuDiscount = { pct: 0, label: '' };
 function menuWideDiscount() {
   const pct = Number(_menuDiscount.pct) || 0;
   if (pct <= 0) return 0;
-  return Math.round(cartTotal() * pct / 100);
+  return Math.round(regularSubtotal() * pct / 100);
 }
 // Per-unit discount amount for showing old/new price on menu cards.
 function unitDiscount(price) {
@@ -1681,7 +1685,7 @@ async function applyCoupon() {
   const input = document.getElementById('custCoupon');
   const feedback = document.getElementById('couponFeedback');
   const code = (input.value || '').trim();
-  const total = cartTotal();
+  const total = regularSubtotal();   // coupons never apply to custom builds
   // Forward the buyer's phone so the server can block self-use of
   // a customer's own referral code.
   const phone = (document.getElementById('custPhone')?.value || '').trim() || null;
@@ -1768,7 +1772,7 @@ function renderCheckoutTotal() {
   const bankDisc = bankTransferDiscount();                      // 5% if paying via bank
   const menuDisc = menuWideDiscount();                          // admin menu-wide % (subtotal only)
   const deliveryFee = applicableDeliveryFee();                  // flat Rs.250 on every order
-  const totalDisc = Math.min(total, bulk.amount + couponDisc + bankDisc + menuDisc);
+  const totalDisc = Math.min(regularSubtotal(), bulk.amount + couponDisc + bankDisc + menuDisc);
   const itemsPayable = Math.max(0, total - totalDisc);
   const grandTotal = itemsPayable + deliveryFee;
 
