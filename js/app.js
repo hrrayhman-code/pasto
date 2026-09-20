@@ -512,6 +512,188 @@ function bpAddToCart() {
   showToast('Custom pasta added to cart');
 }
 
+// ==================================================
+// CUSTOMER ACCOUNTS (login / sign up / my orders / reorder)
+// ==================================================
+let _authMode = 'login';
+let _customerSession = null;
+let _myOrdersCache = [];
+const HIST_STATUS = { received: 'Received', preparing: 'Preparing', baking: 'In the oven', out_for_delivery: 'On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
+
+function initCustomerAccount() {
+  CustomerAPI.getSession().then(session => {
+    _customerSession = session;
+    updateAccountNav(session);
+    if (session) prefillFromProfile();
+  }).catch(() => {});
+  CustomerAPI.onAuthChange(session => {
+    _customerSession = session;
+    updateAccountNav(session);
+  });
+}
+function updateAccountNav(session) {
+  const label = session ? 'My orders' : 'Log in';
+  const a = document.getElementById('navAccount'); if (a) a.textContent = label;
+  const m = document.getElementById('mNavAccount'); if (m) m.textContent = label;
+}
+function onAccountClick() {
+  if (_customerSession) openMyOrders();
+  else openAuthModal('login');
+}
+
+function openAuthModal(mode) {
+  _authMode = mode || 'login';
+  const box = document.getElementById('authModal');
+  if (!box) return;
+  applyAuthMode();
+  const err = document.getElementById('authError'); if (err) err.hidden = true;
+  box.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeAuthModal() {
+  const box = document.getElementById('authModal');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.style.overflow = '';
+}
+function toggleAuthMode() { _authMode = _authMode === 'login' ? 'signup' : 'login'; applyAuthMode(); }
+function applyAuthMode() {
+  const signup = _authMode === 'signup';
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('authTitle', signup ? 'Create your account' : 'Log in');
+  set('authSub', signup
+    ? 'Sign up to track your orders and reorder your favourites in one tap.'
+    : 'Log in to see your past orders and reorder in one tap.');
+  document.getElementById('authNameField').hidden = !signup;
+  document.getElementById('authPhoneField').hidden = !signup;
+  set('authSubmit', signup ? 'Create account' : 'Log in');
+  set('authSwitchText', signup ? 'Already have an account?' : 'New here?');
+  set('authSwitchBtn', signup ? 'Log in' : 'Create an account');
+  document.getElementById('authPassword').setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+}
+
+async function submitAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  const btn = document.getElementById('authSubmit');
+  errEl.hidden = true;
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Please wait…';
+  try {
+    if (_authMode === 'signup') {
+      await CustomerAPI.signUp({
+        email, password,
+        name: document.getElementById('authName').value.trim(),
+        phone: document.getElementById('authPhone').value.trim()
+      });
+    } else {
+      await CustomerAPI.signIn(email, password);
+    }
+    _customerSession = await CustomerAPI.getSession();
+    updateAccountNav(_customerSession);
+    closeAuthModal();
+    showToast(_authMode === 'signup' ? 'Account created — welcome!' : 'Logged in');
+    prefillFromProfile();
+  } catch (err) {
+    let msg = err?.message || 'Something went wrong';
+    if (/already registered|already been registered|already exists/i.test(msg)) msg = 'That email already has an account — try logging in.';
+    else if (/invalid login credentials/i.test(msg)) msg = 'Wrong email or password.';
+    else if (/password should be at least/i.test(msg)) msg = 'Password must be at least 6 characters.';
+    errEl.textContent = msg; errEl.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+async function logoutCustomer() {
+  await CustomerAPI.signOut();
+  _customerSession = null;
+  updateAccountNav(null);
+  closeMyOrders();
+  showToast('Logged out');
+}
+
+async function openMyOrders() {
+  const box = document.getElementById('ordersModal');
+  if (!box) return;
+  const list = document.getElementById('ordersList');
+  list.innerHTML = '<div class="orders-empty">Loading your orders…</div>';
+  box.hidden = false;
+  document.body.style.overflow = 'hidden';
+  try {
+    _myOrdersCache = await CustomerAPI.myOrders();
+    renderMyOrders();
+  } catch (err) {
+    list.innerHTML = '<div class="orders-empty">Could not load your orders. Please try again.</div>';
+  }
+}
+function closeMyOrders() {
+  const box = document.getElementById('ordersModal');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.style.overflow = '';
+}
+function renderMyOrders() {
+  const list = document.getElementById('ordersList');
+  if (!_myOrdersCache.length) {
+    list.innerHTML = `<div class="orders-empty">No orders yet. Once you order, they'll show up here for easy reordering.</div>`;
+    return;
+  }
+  list.innerHTML = _myOrdersCache.map(o => {
+    const items = (o.items || []).map(it => `${Number(it.qty) || 0}× ${escapeHTML(it.name)}`).join(', ');
+    const date = new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const status = HIST_STATUS[o.status] || o.status;
+    return `<div class="order-hist">
+      <div class="order-hist-top">
+        <span class="order-hist-code">#${escapeHTML(o.short_code)}</span>
+        <span class="order-hist-status">${escapeHTML(status)}</span>
+      </div>
+      <div class="order-hist-date">${escapeHTML(date)}</div>
+      <div class="order-hist-items">${escapeHTML(items)}</div>
+      <div class="order-hist-foot">
+        <span class="order-hist-total">${CONFIG.currency} ${o.total}</span>
+        <button class="order-hist-reorder" onclick="reorderFromHistory('${escapeHTML(o.id)}')">Reorder</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function reorderFromHistory(orderId) {
+  const o = _myOrdersCache.find(x => x.id === orderId);
+  if (!o) return;
+  let added = 0, skipped = 0;
+  (o.items || []).forEach(it => {
+    const qty = Number(it.qty) || 1;
+    if (it.id === 'build' && it.selections) {
+      addBuildLineToCart({
+        pasta: it.selections.pasta, sauce: it.selections.sauce, protein: it.selections.protein,
+        extras: Array.isArray(it.selections.extras) ? it.selections.extras : []
+      }, qty);
+      added++;
+    } else {
+      const menuItem = itemById(it.id);
+      if (!menuItem) { skipped++; return; }
+      const addonNames = Array.isArray(it.addons) ? it.addons.map(a => a.name) : [];
+      addLineToCart(it.id, addonNames, qty);
+      added++;
+    }
+  });
+  closeMyOrders();
+  if (added) { openCart(); showToast(skipped ? `Reordered — ${skipped} item(s) no longer available` : 'Added to your cart'); }
+  else showToast('Those items are no longer available');
+}
+
+async function prefillFromProfile() {
+  try {
+    const p = await CustomerAPI.getProfile();
+    const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
+    if (p) { set('custName', p.name); set('custPhone', p.phone); }
+    const email = _customerSession?.user?.email;
+    if (email) set('custEmail', email);
+  } catch (_) { /* ignore */ }
+}
+
 // Active menu category slug ('all' | 'pasta' | 'sides' | 'salad' | …)
 let _activeMenuCat = 'all';
 
@@ -1894,6 +2076,12 @@ async function submitOrder() {
     placedAt: Date.now()
   });
 
+  // If the buyer is logged in, keep their profile phone/name in sync so
+  // future orders (and older ones with this number) stay linked to them.
+  if (_customerSession) {
+    try { CustomerAPI.saveProfile({ name, phone }); } catch (_) {}
+  }
+
   // Clear cart + form state
   cart = {};
   saveCart();
@@ -2518,6 +2706,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderMenu();                  // immediate paint with fallback
   loadMenuFromDB();              // then replace with DB data
   loadSiteSettings();            // apply hero image if set
+  initCustomerAccount();         // customer login state + nav
   renderReviews();
   setupRatingInput();
   renderCart();

@@ -445,3 +445,47 @@ const AuthAPI = {
     return sb.auth.onAuthStateChange((_event, session) => cb(session));
   }
 };
+
+// ==================================================
+// CUSTOMER ACCOUNTS  (email + password; optional, guest checkout still works)
+// ==================================================
+const CustomerAPI = {
+  async signUp({ email, password, name, phone }) {
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) throw error;
+    // Email confirmation is OFF, so a session is returned immediately and we
+    // can save the profile (RLS lets a user write only their own row).
+    if (data.user) {
+      try {
+        await sb.from('customer_profiles').upsert({ id: data.user.id, name: name || null, phone: phone || null, email });
+      } catch (_) { /* profile is best-effort */ }
+    }
+    return data;
+  },
+  async signIn(email, password) {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  },
+  async signOut() { await sb.auth.signOut(); },
+  async getSession() { const { data } = await sb.auth.getSession(); return data.session; },
+  onAuthChange(cb) { return sb.auth.onAuthStateChange((_e, s) => cb(s)); },
+  async getProfile() {
+    const { data, error } = await sb.from('customer_profiles').select('*').maybeSingle();
+    if (error) return null;
+    return data;
+  },
+  async saveProfile(patch) {
+    const { data: u } = await sb.auth.getUser();
+    if (!u?.user) return;
+    try { await sb.from('customer_profiles').upsert({ id: u.user.id, ...patch }); } catch (_) {}
+  },
+  async isAdmin() {
+    try { const { data } = await sb.rpc('is_admin'); return !!data; } catch (_) { return false; }
+  },
+  async myOrders() {
+    const { data, error } = await sb.rpc('my_orders');
+    if (error) throw error;
+    return data || [];
+  }
+};
