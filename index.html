@@ -185,7 +185,6 @@
       <div class="nav-links">
         <a href="#menu">Menu</a>
         <a href="#reviews">Reviews</a>
-        <a href="#rewards">Rewards</a>
         <a href="#order">More ways to order</a>
         <a href="#contact">Contact</a>
         <button class="nav-cart empty" id="navCart" onclick="openCart()">
@@ -204,7 +203,6 @@
     <div class="mobile-nav" id="mobileNav" hidden>
       <a href="#menu" onclick="closeMobileNav()">Menu</a>
       <a href="#reviews" onclick="closeMobileNav()">Reviews</a>
-      <a href="#rewards" onclick="closeMobileNav()">Rewards</a>
       <a href="#order" onclick="closeMobileNav()">More ways to order</a>
       <a href="#contact" onclick="closeMobileNav()">Contact</a>
     </div>
@@ -305,60 +303,6 @@
       <div class="reviews-hint" id="reviewsHint" hidden>← swipe to see more reviews →</div>
       <div class="reviews-empty" id="reviewsEmpty" hidden>
         <p>No reviews yet — be the first to share your experience.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================== -->
-  <!-- REWARDS / LOYALTY SECTION                      -->
-  <!-- ============================================== -->
-  <section class="rewards-section" id="rewards">
-    <div class="noodle-bg"></div>
-    <div class="section-inner">
-      <div class="section-header reveal">
-        <div class="section-eyebrow" style="color: var(--red)">— rewards —</div>
-        <h2 class="section-title">Order more. <em>Eat free.</em></h2>
-        <p class="section-sub">Three ways to save when you order from Pasto.</p>
-      </div>
-
-      <div class="rewards-grid reveal">
-        <div class="reward-card">
-          <div class="reward-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
-          </div>
-          <h3 class="reward-title">Buy 5, get 1 free</h3>
-          <p class="reward-text">Add 5 or more items to a single order and your cheapest item is on us — applied automatically at checkout.</p>
-        </div>
-        <div class="reward-card">
-          <div class="reward-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M20 12v4H6a2 2 0 0 0 0 4h12v-4"/><circle cx="16" cy="14" r="1.5" fill="currentColor"/></svg>
-          </div>
-          <h3 class="reward-title">Promo codes</h3>
-          <p class="reward-text">Got a code from us? Drop it in at checkout for an instant discount. Codes work for percent-off or flat amounts.</p>
-        </div>
-        <div class="reward-card">
-          <div class="reward-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-          </div>
-          <h3 class="reward-title">Refer a friend</h3>
-          <p class="reward-text">Share your personal referral code with a friend — they get 10% off their first order.</p>
-        </div>
-      </div>
-
-      <!-- Loyalty card lookup -->
-      <div class="rewards-lookup reveal" id="rewardsLookup">
-        <div class="rewards-lookup-head">
-          <h3 class="rewards-lookup-title">Your referral code</h3>
-          <p class="rewards-lookup-sub">Enter your phone to grab your referral code to share.</p>
-        </div>
-        <form class="rewards-form" id="rewardsForm">
-          <input type="tel" id="rewardsPhone" placeholder="03XX XXXXXXX" required>
-          <button type="submit" class="btn btn-primary">Check rewards</button>
-        </form>
-
-        <div class="rewards-result" id="rewardsResult" hidden>
-          <!-- Filled in by app.js -->
-        </div>
       </div>
     </div>
   </section>
