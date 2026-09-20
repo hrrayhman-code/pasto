@@ -446,7 +446,7 @@ function openBuildPasta() {
           <span class="qty-val" id="bpQty">1</span>
           <button class="qty-btn" onclick="bpChangeQty(1)" aria-label="Increase">+</button>
         </div>
-        <button class="pm-add" onclick="bpAddToCart()">Add to cart · <span id="bpTotal"></span></button>
+        <button class="pm-add" id="bpAddBtn" onclick="bpAddToCart()">Add to cart</button>
       </div>
     </div>
   `;
@@ -482,8 +482,13 @@ function bpSelection() {
   return { pasta: _bp.pasta, sauce: _bp.sauce, protein: _bp.protein, extras: [..._bp.extras] };
 }
 function bpUpdateTotal() {
-  const el = document.getElementById('bpTotal');
-  if (el) el.textContent = `${CONFIG.currency} ${buildLinePrice(bpSelection()) * _bp.qty}`;
+  const btn = document.getElementById('bpAddBtn');
+  if (!btn) return;
+  // Only reveal the price once every required choice (pasta, sauce, protein) is made.
+  const complete = _bp.pasta && _bp.sauce && _bp.protein;
+  btn.textContent = complete
+    ? `Add to cart · ${CONFIG.currency} ${buildLinePrice(bpSelection()) * _bp.qty}`
+    : 'Add to cart';
 }
 function buildKey(sel) {
   return '__build__#' + [sel.pasta || '', sel.sauce || '', sel.protein || ''].join('|') + '#' + (sel.extras || []).slice().sort().join(',');
