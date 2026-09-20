@@ -5,49 +5,6 @@
 -- It is safe to re-run; everything is idempotent.
 -- ============================================================
 
--- ============================================================
--- ADMIN vs CUSTOMER
--- Both use Supabase Auth. The owner (admin) is enrolled in the admins table;
--- is_admin() gates every owner-only policy. Customers who sign up are
--- authenticated but NOT admins, so they only get customer-level access.
---
--- ONE-TIME after first running this file, enroll your admin login:
---   insert into public.admins(user_id, email)
---   select id, email from auth.users on conflict do nothing;
--- (Run that once now, while the only auth users are your admin accounts.)
--- ============================================================
-create table if not exists public.admins (
-  user_id    uuid primary key references auth.users(id) on delete cascade,
-  email      text,
-  created_at timestamptz not null default now()
-);
-alter table public.admins enable row level security;
-drop policy if exists "admins_self_read" on public.admins;
-create policy "admins_self_read" on public.admins for select
-  to authenticated using (user_id = auth.uid());
-
-create or replace function public.is_admin()
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.admins where user_id = auth.uid());
-$$;
-grant execute on function public.is_admin() to anon, authenticated;
-
--- Customer profiles: one row per signed-up customer, storing the phone so we
--- can surface older orders placed with the same number before they signed up.
-create table if not exists public.customer_profiles (
-  id         uuid primary key references auth.users(id) on delete cascade,
-  name       text,
-  phone      text,
-  email      text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index if not exists customer_profiles_phone_idx on public.customer_profiles(phone);
-alter table public.customer_profiles enable row level security;
-drop policy if exists "cp_self_rw" on public.customer_profiles;
-create policy "cp_self_rw" on public.customer_profiles for all
-  to authenticated using (id = auth.uid()) with check (id = auth.uid());
-
 -- ----- Table -----
 create table if not exists public.reviews (
   id          uuid primary key default gen_random_uuid(),
@@ -96,8 +53,8 @@ create policy "public_insert_pending"
 create policy "auth_all"
   on public.reviews for all
   to authenticated
-  using (public.is_admin())
-  with check (public.is_admin());
+  using (true)
+  with check (true);
 
 -- ----- Atomic like increment (callable by anon) -----
 create or replace function public.increment_review_likes(review_id uuid)
@@ -143,10 +100,6 @@ create table if not exists public.orders (
 create index if not exists orders_status_idx on public.orders(status);
 create index if not exists orders_created_at_idx on public.orders(created_at desc);
 
--- Link an order to a signed-up customer (null for guest checkout).
-alter table public.orders add column if not exists user_id uuid references auth.users(id);
-create index if not exists orders_user_id_idx on public.orders(user_id);
-
 -- updated_at trigger
 create or replace function public.touch_orders_updated_at()
 returns trigger
@@ -173,7 +126,7 @@ drop policy if exists "auth_orders_all" on public.orders;
 create policy "auth_orders_all"
   on public.orders for all
   to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using (true) with check (true);
 
 -- NOTE: place_order + track_order are defined further down at the end of
 -- the file, after all the columns they reference (payment_method, etc.)
@@ -199,7 +152,7 @@ create table if not exists public.loyalty (
 alter table public.loyalty enable row level security;
 drop policy if exists "auth_loyalty_all" on public.loyalty;
 create policy "auth_loyalty_all" on public.loyalty for all to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using (true) with check (true);
 
 -- ----- Coupons (manual promos + auto referral codes share this table) -----
 create table if not exists public.coupons (
@@ -221,7 +174,7 @@ create table if not exists public.coupons (
 alter table public.coupons enable row level security;
 drop policy if exists "auth_coupons_all" on public.coupons;
 create policy "auth_coupons_all" on public.coupons for all to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using (true) with check (true);
 
 -- Optional: add coupon + discount columns to orders if missing
 do $$ begin
@@ -428,7 +381,7 @@ create policy "public_read_active_menu"
 
 create policy "auth_menu_all"
   on public.menu_items for all
-  to authenticated using (public.is_admin()) with check (public.is_admin());
+  to authenticated using (true) with check (true);
 
 -- Seed the five existing items so existing carts / orders keep working.
 -- Re-running this won't clobber edits because of ON CONFLICT DO NOTHING.
@@ -490,7 +443,7 @@ create policy "public_read_settings"
 
 create policy "auth_settings_all"
   on public.site_settings for all
-  to authenticated using (public.is_admin()) with check (public.is_admin());
+  to authenticated using (true) with check (true);
 
 
 -- ============================================================
@@ -513,8 +466,8 @@ create policy "public_read_menu_images"
 
 create policy "auth_write_menu_images"
   on storage.objects for all to authenticated
-  using (bucket_id = 'menu-images' and public.is_admin())
-  with check (bucket_id = 'menu-images' and public.is_admin());
+  using (bucket_id = 'menu-images')
+  with check (bucket_id = 'menu-images');
 
 create policy "public_read_site_images"
   on storage.objects for select to anon, authenticated
@@ -522,8 +475,8 @@ create policy "public_read_site_images"
 
 create policy "auth_write_site_images"
   on storage.objects for all to authenticated
-  using (bucket_id = 'site-images' and public.is_admin())
-  with check (bucket_id = 'site-images' and public.is_admin());
+  using (bucket_id = 'site-images')
+  with check (bucket_id = 'site-images');
 
 -- Section background videos (Story / Rewards / Reviews / Services)
 insert into storage.buckets (id, name, public)
@@ -538,8 +491,8 @@ create policy "public_read_section_videos"
 
 create policy "auth_write_section_videos"
   on storage.objects for all to authenticated
-  using (bucket_id = 'section-videos' and public.is_admin())
-  with check (bucket_id = 'section-videos' and public.is_admin());
+  using (bucket_id = 'section-videos')
+  with check (bucket_id = 'section-videos');
 
 
 -- ============================================================
@@ -615,8 +568,8 @@ create policy "anon_write_payment_proofs"
 create policy "auth_all_payment_proofs"
   on storage.objects for all
   to authenticated
-  using (bucket_id = 'payment-proofs' and public.is_admin())
-  with check (bucket_id = 'payment-proofs' and public.is_admin());
+  using (bucket_id = 'payment-proofs')
+  with check (bucket_id = 'payment-proofs');
 
 
 -- place_order — Spec #2 rewrite: server-authoritative totals (no client price/total trust),
@@ -754,7 +707,7 @@ begin
       v_total_qty := v_total_qty + v_qty;
       v_items := v_items || jsonb_build_object(
         'id','build','name',v_build_name,'price',v_build_price,'qty',v_qty,
-        'addons', v_build_sel, 'addon_total', 0, 'selections', v_sel);
+        'addons', v_build_sel, 'addon_total', 0);
     else
       select * into v_menu from public.menu_items m where m.id = (v_it->>'id') and m.active = true;
       if not found then raise exception 'Item not available'; end if;
@@ -837,11 +790,11 @@ begin
   insert into public.orders (
     customer_name, customer_phone, alt_phone, email, customer_address, notes,
     items, subtotal, delivery_fee, discount, total, coupon_code, used_free_credit,
-    payment_method, payment_status, user_id
+    payment_method, payment_status
   ) values (
     p_name, p_phone, p_alt_phone, p_email, p_address, p_notes,
     v_items, v_subtotal, v_delivery, v_discount, v_subtotal + v_delivery - v_discount,
-    v_coupon, v_free_used, p_payment_method, v_pay_status, auth.uid()
+    v_coupon, v_free_used, p_payment_method, v_pay_status
   ) returning orders.id, orders.short_code into new_id, new_code;
 
   if v_coupon is not null then update public.coupons set used_count=used_count+1 where code=v_coupon; end if;
@@ -904,32 +857,6 @@ as $$
 $$;
 
 grant execute on function public.track_order(uuid) to anon, authenticated;
-
--- ============================================================
--- MY ORDERS — a logged-in customer's own order history.
--- Matches by account (user_id) OR by the phone saved on their profile, so
--- orders placed as a guest before signing up (same number) also show up.
--- ============================================================
-create or replace function public.my_orders()
-returns table (
-  id uuid, short_code text, created_at timestamptz, status text,
-  items jsonb, subtotal int, delivery_fee int, discount int, total int,
-  payment_method text, payment_status text
-)
-language sql stable security definer set search_path = public as $$
-  select o.id, o.short_code, o.created_at, o.status,
-         o.items, o.subtotal, o.delivery_fee, o.discount, o.total,
-         o.payment_method, o.payment_status
-  from public.orders o
-  where auth.uid() is not null
-    and (
-      o.user_id = auth.uid()
-      or o.customer_phone = (select phone from public.customer_profiles where id = auth.uid())
-    )
-  order by o.created_at desc
-  limit 100;
-$$;
-grant execute on function public.my_orders() to authenticated;
 
 
 -- attach_payment_proof — Spec #2: lets an anon order-placer attach their payment
@@ -1089,7 +1016,7 @@ create policy "public_insert_signup"
 create policy "auth_signups_all"
   on public.launch_signups for all
   to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using (true) with check (true);
 
 
 -- ============================================================

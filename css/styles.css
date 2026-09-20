@@ -2053,31 +2053,6 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
 .bp-opt-name { font-weight: 600; font-size: 15px; }
 .bp-opt input { width: 20px; height: 20px; accent-color: #E63946; cursor: pointer; }
 
-/* Account modals (login / sign up / my orders) */
-.acct-card { max-width: 420px; }
-.acct-card .pm-info { padding: 26px 22px 24px; }
-#authModal .field { margin-bottom: 12px; }
-#authModal label { display: block; font-size: 13px; font-weight: 700; color: #8B7E6B; margin-bottom: 5px; }
-#authModal input { width: 100%; padding: 12px 13px; border-radius: 11px; border: 1.5px solid rgba(26,26,26,0.16); background: #F5EDE0; font-family: inherit; font-size: 16px; color: #1a1a1a; }
-#authModal input:focus { outline: none; border-color: #1a1a1a; }
-.acct-submit { width: 100%; margin-top: 6px; }
-.auth-error { background: rgba(201,40,55,0.1); color: #c92837; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
-.auth-switch { text-align: center; margin-top: 14px; font-size: 14px; color: #8B7E6B; }
-.auth-switch-btn { border: none; background: none; color: #E63946; font-weight: 800; cursor: pointer; font-size: 14px; }
-.orders-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.orders-logout { border: 1.5px solid rgba(26,26,26,0.16); background: transparent; border-radius: 100px; padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer; color: #1a1a1a; }
-.order-hist { border: 1.5px solid rgba(26,26,26,0.1); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
-.order-hist-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.order-hist-code { font-weight: 800; }
-.order-hist-date { font-size: 12px; color: #8B7E6B; }
-.order-hist-status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #2d6a3f; }
-.order-hist-items { font-size: 13px; color: #5c5347; margin: 6px 0 10px; line-height: 1.45; }
-.order-hist-foot { display: flex; justify-content: space-between; align-items: center; }
-.order-hist-total { font-weight: 800; }
-.order-hist-reorder { border: none; background: #E63946; color: #fff; font-weight: 700; font-size: 13px; padding: 8px 16px; border-radius: 100px; cursor: pointer; }
-.orders-empty { text-align: center; color: #8B7E6B; padding: 24px 10px; font-style: italic; }
-#navAccount { cursor: pointer; }
-
 .review-card {
   position: relative;
   background: var(--cream-dark);
