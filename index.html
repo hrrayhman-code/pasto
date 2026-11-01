@@ -248,6 +248,20 @@
   </section>
 
   <!-- ============================================== -->
+  <!-- ROTATING BANNERS (managed in admin → Banners)  -->
+  <!-- ============================================== -->
+  <section class="promo-carousel" id="promoCarousel" hidden aria-roledescription="carousel" aria-label="Featured deals">
+    <div class="pc-inner">
+      <div class="pc-stage">
+        <div class="pc-track" id="pcTrack"></div>
+        <button class="pc-arrow pc-prev" type="button" aria-label="Previous banner" onclick="pcGo(-1)">‹</button>
+        <button class="pc-arrow pc-next" type="button" aria-label="Next banner" onclick="pcGo(1)">›</button>
+      </div>
+      <div class="pc-dots" id="pcDots"></div>
+    </div>
+  </section>
+
+  <!-- ============================================== -->
   <!-- MENU SECTION                                   -->
   <!-- Menu items are populated by js/app.js          -->
   <!-- Edit prices/items in js/config.js              -->

@@ -2053,6 +2053,65 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
 .bp-opt-name { font-weight: 600; font-size: 15px; }
 .bp-opt input { width: 20px; height: 20px; accent-color: #E63946; cursor: pointer; }
 
+/* ============ Rotating homepage banners (between hero and menu) ============ */
+.promo-carousel { background: var(--cream-dark); padding: 18px 24px 0; }
+.promo-carousel[hidden] { display: none; }
+.pc-inner { max-width: 1180px; margin: 0 auto; }
+.pc-stage { position: relative; }
+.pc-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border-radius: 18px;
+  background: #f0e6d6;
+}
+.pc-track::-webkit-scrollbar { display: none; }
+.pc-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+button.pc-slide { cursor: pointer; }
+button.pc-slide:focus-visible { outline: 3px solid var(--red); outline-offset: -3px; }
+.pc-slide img { display: block; width: 100%; aspect-ratio: 8 / 3; object-fit: cover; }
+.pc-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 42px; border-radius: 50%;
+  border: none; background: rgba(255, 255, 255, 0.92); color: #1a1a1a;
+  font-size: 24px; line-height: 1; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  display: none; align-items: center; justify-content: center;
+}
+.pc-prev { left: 12px; }
+.pc-next { right: 12px; }
+.pc-arrow:hover { background: var(--red); color: #fff; }
+@media (hover: hover) and (min-width: 768px) {
+  .pc-arrow { display: flex; opacity: 0; transition: opacity 0.2s; }
+  .pc-stage:hover .pc-arrow, .pc-arrow:focus-visible { opacity: 1; }
+}
+.pc-dots { display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
+.pc-dot {
+  width: 20px; height: 20px; padding: 6px; border: none; border-radius: 100px;
+  background: rgba(26, 26, 26, 0.22); background-clip: content-box;
+  cursor: pointer; transition: width 0.2s, background-color 0.2s;
+}
+.pc-dot.on { width: 34px; background-color: var(--red); }
+.promo-carousel.single .pc-arrow,
+.promo-carousel.single .pc-dots { display: none; }
+@media (max-width: 640px) {
+  .promo-carousel { padding: 14px 16px 0; }
+  .pc-track { border-radius: 14px; }
+  .pc-slide.has-mobile img { aspect-ratio: 1 / 1; }
+}
+
 .review-card {
   position: relative;
   background: var(--cream-dark);

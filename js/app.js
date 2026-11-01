@@ -512,6 +512,112 @@ function bpAddToCart() {
   showToast('Custom pasta added to cart');
 }
 
+// ==================================================
+// ROTATING HOMEPAGE BANNERS (admin → Banners)
+// ==================================================
+// Image-only slides from site_settings.home_banners. A slide linked to a menu
+// item opens that item's product popup (photo, add-ons, Add to cart).
+let HOME_BANNERS = [];
+let _pc = { index: 0, timer: null, paused: false, count: 0 };
+const PC_INTERVAL_MS = 5000;
+
+function karachiToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });   // YYYY-MM-DD
+}
+function visibleBanners() {
+  const today = karachiToday();
+  return HOME_BANNERS.filter(b => {
+    if (!b || !b.active || !b.image) return false;
+    if (b.start && b.start > today) return false;
+    if (b.end && b.end < today) return false;
+    // A banner linked to a dish that's hidden or deleted would be a dead end.
+    if (b.item_id && !itemById(b.item_id)) return false;
+    return true;
+  });
+}
+function renderPromoCarousel() {
+  const wrap = document.getElementById('promoCarousel');
+  const track = document.getElementById('pcTrack');
+  const dots = document.getElementById('pcDots');
+  if (!wrap || !track || !dots) return;
+  const list = visibleBanners();
+  stopPcTimer();
+  if (!list.length) { wrap.hidden = true; track.innerHTML = ''; dots.innerHTML = ''; _pc.count = 0; return; }
+
+  track.innerHTML = list.map((b, i) => {
+    const alt = escapeHTML(b.alt || 'Featured');
+    const src = b.image_mobile ? `<source media="(max-width: 640px)" srcset="${escapeHTML(b.image_mobile)}">` : '';
+    const load = i === 0 ? 'fetchpriority="high"' : 'loading="lazy"';
+    const pic = `<picture>${src}<img src="${escapeHTML(b.image)}" alt="${b.item_id ? '' : alt}" ${load} decoding="async"></picture>`;
+    const cls = `pc-slide${b.image_mobile ? ' has-mobile' : ''}`;
+    return b.item_id
+      ? `<button type="button" class="${cls}" data-item="${escapeHTML(b.item_id)}" aria-roledescription="slide" aria-label="${alt} — view and add to cart">${pic}</button>`
+      : `<div class="${cls}" role="group" aria-roledescription="slide" aria-label="${alt}">${pic}</div>`;
+  }).join('');
+  dots.innerHTML = list.map((_, i) =>
+    `<button type="button" class="pc-dot${i === 0 ? ' on' : ''}" aria-label="Show banner ${i + 1}" onclick="pcGo(${i}, true)"></button>`
+  ).join('');
+
+  _pc.count = list.length;
+  _pc.index = 0;
+  track.scrollLeft = 0;
+  wrap.classList.toggle('single', list.length < 2);
+  wrap.hidden = false;
+
+  if (!track.dataset.wired) {
+    track.dataset.wired = '1';
+    track.addEventListener('click', e => {
+      const slide = e.target.closest('.pc-slide[data-item]');
+      if (slide) openProductModal(slide.getAttribute('data-item'));
+    });
+    let raf = 0;
+    track.addEventListener('scroll', () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+        if (i !== _pc.index) { _pc.index = i; pcSyncDots(); }
+      });
+    }, { passive: true });
+    const pause = () => { _pc.paused = true; };
+    const resume = () => { _pc.paused = false; };
+    wrap.addEventListener('mouseenter', pause);
+    wrap.addEventListener('mouseleave', resume);
+    wrap.addEventListener('focusin', pause);
+    wrap.addEventListener('focusout', resume);
+    track.addEventListener('touchstart', pause, { passive: true });
+    track.addEventListener('touchend', () => setTimeout(resume, 4000), { passive: true });
+    window.addEventListener('resize', () => pcGoTo(_pc.index, false));
+  }
+  startPcTimer();
+}
+function pcSyncDots() {
+  document.querySelectorAll('#pcDots .pc-dot').forEach((d, i) => d.classList.toggle('on', i === _pc.index));
+}
+function pcGoTo(i, smooth = true) {
+  const track = document.getElementById('pcTrack');
+  if (!track || !_pc.count) return;
+  _pc.index = ((i % _pc.count) + _pc.count) % _pc.count;
+  track.scrollTo({ left: _pc.index * track.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+  pcSyncDots();
+}
+// Arrows pass a direction (-1 / +1); dots pass an absolute index with abs=true.
+function pcGo(n, abs) {
+  pcGoTo(abs ? n : _pc.index + n);
+  startPcTimer();   // restart the 5s countdown after a manual move
+}
+function startPcTimer() {
+  stopPcTimer();
+  if (_pc.count < 2) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  _pc.timer = setInterval(() => {
+    if (_pc.paused || document.hidden) return;
+    pcGoTo(_pc.index + 1);
+  }, PC_INTERVAL_MS);
+}
+function stopPcTimer() {
+  if (_pc.timer) { clearInterval(_pc.timer); _pc.timer = null; }
+}
+
 // Active menu category slug ('all' | 'pasta' | 'sides' | 'salad' | …)
 let _activeMenuCat = 'all';
 
@@ -2399,6 +2505,7 @@ async function loadMenuFromDB() {
   renderMenu();
   renderCart();
   updateCartCount();
+  renderPromoCarousel();   // banners link to menu items; re-check against the live menu
 }
 
 // Apply admin-uploaded hero image (if any) over the SVG illustration.
@@ -2436,6 +2543,12 @@ async function loadSiteSettings() {
       });
     } catch (_) { /* keep default */ }
     reflectBuildAvailability();
+    // Rotating homepage banners.
+    try {
+      const banners = JSON.parse(settings.home_banners || '[]');
+      HOME_BANNERS = Array.isArray(banners) ? banners : [];
+    } catch (_) { HOME_BANNERS = []; }
+    renderPromoCarousel();
     const heroUrl = settings.hero_image_url;
     const heroVisual = document.querySelector('.hero-visual');
     if (heroUrl && heroVisual) {

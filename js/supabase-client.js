@@ -341,13 +341,13 @@ const SettingsAPI = {
       .upsert({ key, value, updated_at: new Date().toISOString() });
     if (error) throw error;
   },
-  async uploadSiteImage(file, prefix = 'hero') {
+  async uploadSiteImage(file, prefix = 'hero', cacheControl = '3600') {
     if (!file) throw new Error('No file selected');
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${prefix}-${Date.now()}.${ext}`;
     const { error } = await sb.storage
       .from('site-images')
-      .upload(path, file, { cacheControl: '3600', upsert: false });
+      .upload(path, file, { cacheControl, upsert: false });
     if (error) throw error;
     const { data: urlData } = sb.storage.from('site-images').getPublicUrl(path);
     return urlData.publicUrl;

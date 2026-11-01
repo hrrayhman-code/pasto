@@ -435,7 +435,7 @@ create policy "public_read_settings"
     'business_hours_start','business_hours_end',
     'kitchen_lat','kitchen_lng','delivery_radius_km',
     'menu_categories','menu_discount_percent','menu_discount_label',
-    'build_pasta_options',
+    'build_pasta_options','home_banners',
     'ordering_paused','ordering_paused_reason',
     'bg_video_story','bg_video_rewards','bg_video_reviews','bg_video_services',
     'bg_video_opacity_story','bg_video_opacity_rewards','bg_video_opacity_reviews','bg_video_opacity_services'
@@ -964,6 +964,9 @@ insert into public.site_settings (key, value) values
   -- tabs and the admin item-form category dropdown. Add future categories here
   -- from admin → Menu.
   ('menu_categories',         '["Pasta","Sides","Salad"]'),
+  -- Rotating homepage banners (JSON array, managed in admin → Banners).
+  -- Each: {id, image, image_mobile, item_id, alt, start, end, active}.
+  ('home_banners',            '[]'),
   -- "Build Your Pasta" customiser options (JSON). Each group is a list of
   -- {name, price}. Prices are edited in admin → Menu. place_order prices the
   -- customer's selection from THIS setting (client prices ignored).

@@ -163,6 +163,7 @@ function showDashboard(session) {
   loadCategories();
   loadBuildOptions();
   loadMenuItems();
+  loadBanners();
   loadSiteImagePreview();
   loadStoreSettings();
   loadPauseSettings();
@@ -823,6 +824,7 @@ async function loadMenuItems() {
       return;
     }
     list.innerHTML = _menuCache.map(renderMenuRow).join('');
+    renderBannerList();   // banner rows show linked dish names, which need the menu
   } catch (err) {
     list.innerHTML = `<div class="admin-empty error">Failed to load menu: ${escapeHTML(err.message)}</div>`;
   }
@@ -862,6 +864,155 @@ function renderMenuRow(m) {
       </div>
     </article>
   `;
+}
+
+// ----- Homepage banners (rotating, image-only, stored in site_settings.home_banners) -----
+let _banners = [];
+
+async function loadBanners() {
+  try {
+    const arr = JSON.parse((await SettingsAPI.get('home_banners')) || '[]');
+    _banners = Array.isArray(arr) ? arr : [];
+  } catch (_) { _banners = []; }
+  renderBannerList();
+}
+async function persistBanners() {
+  await SettingsAPI.set('home_banners', JSON.stringify(_banners));
+}
+function renderBannerList() {
+  const list = document.getElementById('adminBannerList');
+  if (!list) return;
+  if (!_banners.length) {
+    list.innerHTML = `<div class="admin-empty">No banners yet — click "+ New banner" to add one.</div>`;
+    return;
+  }
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+  list.innerHTML = _banners.map((b, i) => {
+    const item = _menuCache.find(m => m.id === b.item_id);
+    const when = (b.start && b.start > today) ? 'Scheduled' : (b.end && b.end < today) ? 'Expired' : '';
+    const link = b.item_id ? (item ? `Opens: ${escapeHTML(item.name)}${item.active ? '' : ' (item hidden)'}` : 'Linked item deleted') : 'No link';
+    return `
+      <article class="admin-row ${b.active ? '' : 'inactive'}">
+        <div class="menu-row-grid">
+          <img src="${escapeHTML(b.image)}" alt="" style="width:160px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+          <div class="menu-row-info">
+            <div class="admin-row-meta">
+              <span class="admin-row-name">${escapeHTML(b.alt || 'Banner ' + (i + 1))}</span>
+              <span class="admin-row-sub">· ${link}</span>
+              ${(b.start || b.end) ? `<span class="admin-row-sub">· ${escapeHTML(b.start || '…')} → ${escapeHTML(b.end || '…')}</span>` : ''}
+              ${b.image_mobile ? '<span class="admin-row-sub">· has mobile image</span>' : ''}
+              ${!b.active ? '<span class="badge coupon-status-badge-inactive">Hidden</span>' : ''}
+              ${when ? `<span class="badge coupon-status-badge-inactive">${when}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="admin-row-actions">
+          <button class="admin-action" onclick="moveBanner(${i}, -1)" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+          <button class="admin-action" onclick="moveBanner(${i}, 1)" ${i === _banners.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+          <button class="admin-action" onclick="editBanner(${i})">Edit</button>
+          <button class="admin-action ${b.active ? 'reject' : 'approve'}" onclick="toggleBanner(${i})">${b.active ? 'Hide' : 'Show'}</button>
+          <button class="admin-action danger" onclick="deleteBanner(${i})">Delete</button>
+        </div>
+      </article>`;
+  }).join('');
+}
+function fillBannerItemSelect(selected) {
+  const sel = document.getElementById('bnItem');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— No link (image only) —</option>' +
+    _menuCache.map(m => `<option value="${escapeHTML(m.id)}"${m.id === selected ? ' selected' : ''}>${escapeHTML(m.name)}${m.active ? '' : ' (hidden)'}</option>`).join('');
+}
+function setBannerPreview(id, url) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = !url;
+  el.innerHTML = url ? `<img src="${escapeHTML(url)}" alt=""><span>Current image — pick a file above to replace.</span>` : '';
+}
+function openBannerForm() {
+  const f = document.getElementById('bannerForm');
+  f.reset();
+  document.getElementById('bnIndex').value = '';
+  document.getElementById('bnActive').checked = true;
+  fillBannerItemSelect('');
+  setBannerPreview('bnImagePreview', '');
+  setBannerPreview('bnImageMobilePreview', '');
+  f.hidden = false;
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function closeBannerForm() {
+  document.getElementById('bannerForm').hidden = true;
+}
+function editBanner(i) {
+  const b = _banners[i];
+  if (!b) return;
+  openBannerForm();
+  document.getElementById('bnIndex').value = String(i);
+  fillBannerItemSelect(b.item_id || '');
+  document.getElementById('bnAlt').value = b.alt || '';
+  document.getElementById('bnStart').value = b.start || '';
+  document.getElementById('bnEnd').value = b.end || '';
+  document.getElementById('bnActive').checked = !!b.active;
+  setBannerPreview('bnImagePreview', b.image);
+  setBannerPreview('bnImageMobilePreview', b.image_mobile);
+}
+async function saveBanner(e) {
+  e.preventDefault();
+  const idxRaw = document.getElementById('bnIndex').value;
+  const existing = idxRaw !== '' ? _banners[Number(idxRaw)] : null;
+  const desk = document.getElementById('bnImage').files[0];
+  const mob = document.getElementById('bnImageMobile').files[0];
+  const start = document.getElementById('bnStart').value;
+  const end = document.getElementById('bnEnd').value;
+  if (!desk && !existing?.image) { showToast('Please choose a desktop image'); return; }
+  if (start && end && end < start) { showToast('"Show until" must be after "Show from"'); return; }
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    // Unique filenames, so the browser can cache them for a year (saves bandwidth).
+    const image = desk ? await SettingsAPI.uploadSiteImage(desk, 'banner', '31536000') : existing.image;
+    const imageMobile = mob ? await SettingsAPI.uploadSiteImage(mob, 'banner-m', '31536000') : (existing?.image_mobile || '');
+    const rec = {
+      id: existing?.id || ('b' + Date.now().toString(36)),
+      image,
+      image_mobile: imageMobile,
+      item_id: document.getElementById('bnItem').value || '',
+      alt: document.getElementById('bnAlt').value.trim(),
+      start, end,
+      active: document.getElementById('bnActive').checked
+    };
+    if (existing) _banners[Number(idxRaw)] = rec; else _banners.push(rec);
+    await persistBanners();
+    closeBannerForm();
+    renderBannerList();
+    showToast(existing ? 'Banner updated' : 'Banner added');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed: ' + (err.message || ''));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save banner';
+  }
+}
+async function moveBanner(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= _banners.length) return;
+  [_banners[i], _banners[j]] = [_banners[j], _banners[i]];
+  try { await persistBanners(); renderBannerList(); }
+  catch (err) { showToast('Failed: ' + (err.message || '')); loadBanners(); }
+}
+async function toggleBanner(i) {
+  if (!_banners[i]) return;
+  _banners[i].active = !_banners[i].active;
+  try { await persistBanners(); renderBannerList(); showToast(_banners[i].active ? 'Banner visible' : 'Banner hidden'); }
+  catch (err) { showToast('Failed: ' + (err.message || '')); loadBanners(); }
+}
+async function deleteBanner(i) {
+  if (!confirm('Delete this banner?')) return;
+  _banners.splice(i, 1);
+  try { await persistBanners(); renderBannerList(); showToast('Banner deleted'); }
+  catch (err) { showToast('Failed: ' + (err.message || '')); loadBanners(); }
 }
 
 // ----- Build Your Pasta options editor -----

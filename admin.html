@@ -88,6 +88,7 @@
       <div class="admin-section-tabs" role="tablist">
         <button class="admin-section-tab active" data-section="orders"  role="tab">Orders</button>
         <button class="admin-section-tab"        data-section="menu"    role="tab">Menu</button>
+        <button class="admin-section-tab"        data-section="banners" role="tab">Banners</button>
         <button class="admin-section-tab"        data-section="reviews" role="tab">Reviews</button>
         <button class="admin-section-tab"        data-section="coupons" role="tab">Coupons</button>
         <button class="admin-section-tab"        data-section="launch"  role="tab">Launch list</button>
@@ -362,6 +363,67 @@
         </form>
 
         <section class="admin-list" id="adminMenuList">
+          <div class="admin-empty">Loading…</div>
+        </section>
+      </div>
+
+      <!-- ============== BANNERS section (rotating homepage banners) ============== -->
+      <div class="admin-section" data-section="banners" hidden>
+        <div class="coupons-head">
+          <div>
+            <h3 class="coupons-title">Homepage banners</h3>
+            <p class="coupons-sub">Rotating image banners shown between the hero and the menu. Tapping a banner opens the linked dish or deal so customers can add it to cart. Desktop image 1600×600, mobile 1080×1080, JPG/WebP under ~300 KB.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openBannerForm()">+ New banner</button>
+        </div>
+
+        <form class="coupon-form" id="bannerForm" hidden onsubmit="saveBanner(event)">
+          <input type="hidden" id="bnIndex" value="">
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="bnImage">Desktop image (1600×600)</label>
+              <input id="bnImage" type="file" accept="image/*">
+              <div class="menu-form-preview" id="bnImagePreview" hidden></div>
+            </div>
+            <div class="field">
+              <label for="bnImageMobile">Mobile image (1080×1080, optional)</label>
+              <input id="bnImageMobile" type="file" accept="image/*">
+              <div class="menu-form-preview" id="bnImageMobilePreview" hidden></div>
+            </div>
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="bnItem">Opens dish / deal</label>
+              <select id="bnItem"></select>
+            </div>
+            <div class="field">
+              <label for="bnAlt">Name (for your list + screen readers)</label>
+              <input id="bnAlt" type="text" maxlength="100" placeholder="e.g. Date Night Deal">
+            </div>
+          </div>
+          <div class="coupon-form-row">
+            <div class="field">
+              <label for="bnStart">Show from (optional)</label>
+              <input id="bnStart" type="date">
+            </div>
+            <div class="field">
+              <label for="bnEnd">Show until (optional)</label>
+              <input id="bnEnd" type="date">
+            </div>
+            <div class="field">
+              <label class="admin-toggle" style="margin-top: 28px;">
+                <input type="checkbox" id="bnActive" checked>
+                <span>Active</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="modal-cancel" onclick="closeBannerForm()">Cancel</button>
+            <button type="submit" class="modal-submit">Save banner</button>
+          </div>
+        </form>
+
+        <section class="admin-list" id="adminBannerList">
           <div class="admin-empty">Loading…</div>
         </section>
       </div>
