@@ -2019,9 +2019,10 @@ body:has(.cart-drawer.open) .cart-bar { display: none; }
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 .product-modal-close svg { width: 18px; height: 18px; }
-.pm-photo { width: 100%; height: 220px; overflow: hidden; background: #f0e6d6; border-radius: 22px 22px 0 0; }
-.pm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pm-photo-svg { display: flex; align-items: center; justify-content: center; }
+.pm-photo { width: 100%; overflow: hidden; background: #f0e6d6; border-radius: 22px 22px 0 0; }
+/* Show the whole photo (dish shots are square) — never crop text/branding on it */
+.pm-photo img { width: 100%; height: auto; aspect-ratio: 1 / 1; max-height: 55vh; object-fit: contain; display: block; }
+.pm-photo-svg { height: 220px; display: flex; align-items: center; justify-content: center; }
 .pm-photo-svg svg { width: 120px; height: 120px; }
 .pm-info { padding: 18px 20px 22px; }
 .pm-name { font-size: 22px; margin: 0 0 6px; }
