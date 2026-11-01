@@ -306,17 +306,53 @@ const MenuAPI = {
   },
   async uploadImage(file, itemId) {
     if (!file) throw new Error('No file selected');
+    file = await compressImage(file, 1000);
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const safeId = (itemId || 'item').replace(/[^a-z0-9_-]/gi, '');
     const path = `${safeId}-${Date.now()}.${ext}`;
+    // Filenames are unique per upload, so browsers can cache them for a year
     const { error } = await sb.storage
       .from('menu-images')
-      .upload(path, file, { cacheControl: '3600', upsert: false });
+      .upload(path, file, { cacheControl: '31536000', upsert: false });
     if (error) throw error;
     const { data: urlData } = sb.storage.from('menu-images').getPublicUrl(path);
     return urlData.publicUrl;
   }
 };
+
+// Shrink a photo in the browser before upload: longest side capped at maxDim,
+// re-encoded as WebP (JPEG where WebP encoding isn't supported). Phone/AI
+// exports are often 5–10 MB PNGs — this turns them into ~100 KB files, which
+// keeps Supabase egress well inside the free quota. Returns the original file
+// when it can't be decoded or when it's already smaller.
+async function compressImage(file, maxDim = 1000, quality = 0.82) {
+  if (!file || !/^image\/(png|jpe?g|webp|bmp)$/i.test(file.type || '')) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, w, h);
+    const toBlob = (type) => new Promise(r => canvas.toBlob(r, type, quality));
+    let blob = await toBlob('image/webp');
+    if (!blob || blob.type !== 'image/webp') {
+      // JPEG has no transparency — paint white behind it so cut-outs don't go black
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      blob = await toBlob('image/jpeg');
+    }
+    bmp.close && bmp.close();
+    if (!blob || (blob.size >= file.size && scale === 1)) return file;
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+    const base = (file.name || 'photo').replace(/\.[^.]+$/, '');
+    return new File([blob], `${base}.${ext}`, { type: blob.type });
+  } catch (_) {
+    return file;
+  }
+}
 
 // ==================================================
 // SETTINGS API  (site-wide key/value bag)
@@ -343,6 +379,7 @@ const SettingsAPI = {
   },
   async uploadSiteImage(file, prefix = 'hero', cacheControl = '3600') {
     if (!file) throw new Error('No file selected');
+    file = await compressImage(file, 1600);
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${prefix}-${Date.now()}.${ext}`;
     const { error } = await sb.storage

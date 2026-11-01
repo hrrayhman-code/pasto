@@ -254,7 +254,10 @@
             <h3 class="coupons-title">Menu items</h3>
             <p class="coupons-sub">Add, edit, reorder, and disable dishes. Photos appear on the menu cards.</p>
           </div>
-          <button class="btn btn-primary" onclick="openMenuForm()">+ New item</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary" id="optimizePhotosBtn" onclick="optimizeMenuPhotos()" title="Re-compress large dish photos to save bandwidth">Optimize photos</button>
+            <button class="btn btn-primary" onclick="openMenuForm()">+ New item</button>
+          </div>
         </div>
 
         <!-- Category manager: add/remove the categories that become menu tabs -->

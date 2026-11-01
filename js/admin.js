@@ -1148,6 +1148,46 @@ function editMenuItem(id) {
   }
 }
 
+// One-off cleanup for photos uploaded before uploads were compressed:
+// any dish photo over ~300 KB is downloaded, shrunk and re-uploaded.
+async function optimizeMenuPhotos() {
+  const btn = document.getElementById('optimizePhotosBtn');
+  const items = _menuCache.filter(i => i.image_url);
+  if (!items.length) { showToast('No dish photos to optimize'); return; }
+  btn.disabled = true;
+  let done = 0, saved = 0, failed = 0;
+  try {
+    for (let n = 0; n < items.length; n++) {
+      const item = items[n];
+      btn.textContent = `Checking ${n + 1}/${items.length}…`;
+      try {
+        const res = await fetch(item.image_url, { cache: 'no-store' });
+        if (!res.ok) throw new Error('download failed');
+        const blob = await res.blob();
+        if (blob.size <= 300 * 1024) continue;
+        const name = item.image_url.split('/').pop().split('?')[0];
+        const url = await MenuAPI.uploadImage(new File([blob], name, { type: blob.type }), item.id);
+        const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        const newSize = +head.headers.get('content-length') || 0;
+        await MenuAPI.update(item.id, { image_url: url });
+        done++;
+        saved += Math.max(0, blob.size - newSize);
+      } catch (err) {
+        console.warn('optimize failed for', item.id, err);
+        failed++;
+      }
+    }
+    const mb = (saved / 1048576).toFixed(1);
+    showToast(done
+      ? `Optimized ${done} photo${done === 1 ? '' : 's'} — saved ${mb} MB per full menu view${failed ? ` (${failed} failed)` : ''}`
+      : failed ? `${failed} photo(s) couldn't be optimized` : 'All dish photos are already small ✓');
+    await loadMenuItems();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Optimize photos';
+  }
+}
+
 async function saveMenuItem(e) {
   e.preventDefault();
   const isNew = !document.getElementById('miOriginalId').value;
